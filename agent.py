@@ -3,6 +3,8 @@ from pydantic import BaseModel
 from litellm import completion
 from langgraph.graph import StateGraph, START, END
 
+import tools
+
 ####################
 # Assistant prompts
 ####################
@@ -138,6 +140,8 @@ class AgentState(TypedDict):
     n_search_rounds:int = 0
     # maximum number of search rounds
     max_search_rounds: int = 10
+    # current instructions for the research agent in the active step
+    current_step_instructions: Optional[str]
     # the previously run step
     last_step: Optional[str]
     # This variable tracks the output of previous successful steps as context for executing the next step
@@ -179,14 +183,12 @@ def make_plan(state:AgentState):
     ]
 
     # get the plan
-    # TODO: force JSON output
     response = completion(
         model=state['llm'],
         api_key=state['api_key'],
         base_url=state['base_url'],
         messages=planning_messages,
         response_format=AgentPlan,
-        # stop=["Code:", "```", "\n\n"],
         stream=False,
         max_tokens=1024,
         temperature=1.0,
@@ -199,7 +201,10 @@ def make_plan(state:AgentState):
     print("Initial plan:\n\n" + str(plan))
     
     return {
-        "plan": plan
+        # full plan
+        "plan": plan,
+        # set first step instructions
+        "current_step_instructions": plan.steps[0]
     }
 
 def check_agent_progress(state:AgentState):
@@ -222,11 +227,73 @@ def do_research_step(state:AgentState):
     output from the previous document search step. Depending on the instruction, the Research 
     Assistant can use tools like web search or document search, or both, to fulfill its task.
     """
-    current_step = state['plan'].steps[state['n_search_rounds']]
-    print("Starting step: " + current_step)
+    # Now that we have determined the next step to take, execute it
+    # await self.emit_event_safe(message="Executing step: " + instruction)
+    # prompt = instruction
+    # if answer_output:
+    #     prompt += f"\n Contextual Information: \n{answer_output}"
+    # output = await user_proxy.a_initiate_chat(
+    #     recipient=assistant, max_turns=3, message=prompt
+    # )
 
+    # # Sort through the chat history and extract out replies from the assistant (We don't need the full results of the tool calls, just the assistant's summary)
+    # previous_output = []
+    # for chat_item in output.chat_history:
+    #     if chat_item["content"] and chat_item["name"] == "Research_Assistant":
+    #         previous_output.append(chat_item["content"])
+
+    # # The previous instruction and its output will be recorded for the next iteration to inspect before determining the next step of the plan
+    # last_output = previous_output
+    # last_step = instruction
+
+
+    # get results of any successful prior steps
+    answer_output = state['answer_output']
+    print(str(answer_output))
+    # get the instructions for this step
+    instruction = state['current_step_instructions']
+    print("Starting step: " + instruction)
+    # start assembling the actual prompt
+    prompt = instruction
+    if len(answer_output) > 0:
+        prompt += f"\n Contextual Information:\n{answer_output}"
+    print(prompt)
+
+    # assemble the messages
+    messages = [
+        {
+            'role': 'system',
+            'content': ASSISTANT_PROMPT
+        },
+        {
+            'role': 'user',
+            'content': prompt
+        }
+    ]
+    # get LLM response
+    response = completion(
+        model=state['llm'],
+        api_key=state['api_key'],
+        base_url=state['base_url'],
+        messages=messages,
+        tools=[tools.PubmedSearchTool.llm_definition],
+        stream=False,
+        max_tokens=1024,
+        temperature=1.0,
+        top_p=0.95
+    )
+    ai_msg = response['choices'][0]['message']
+
+    # check if LLM made a tool call
+    tool_calls = ai_msg['tool_calls']
+    if tool_calls is not None:
+        print("Research agent called tools:\n" + str(tool_calls))
+        response = str(tool_calls)
+    else:
+        print("Raw text:" + ai_msg['content'])
+        response = ai_msg['content']
     return {
-        'final_answer': "42"
+        'final_answer': response
     }
 
 def summarize_research_result(state:AgentState):
