@@ -304,7 +304,6 @@ def do_research_step(state:AgentState):
             called_tool = state['tools'].get(tc.function.name)
             tool_args = json.loads(tc.function.arguments)
             response += "\n" + str(called_tool.call(**tool_args))
-        response = str(tool_calls)
     else:
         print("Raw text:" + ai_msg['content'])
         response = ai_msg['content']

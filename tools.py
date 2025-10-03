@@ -1,5 +1,8 @@
 import requests
+import time
+
 from typing import TypedDict, List, Dict, Any, Optional
+from xml.etree import ElementTree
 
 class Tool:
     """
@@ -107,7 +110,7 @@ class PubmedSearchTool(Tool):
         fetch_response = requests.get(efetch_url, params=efetch_params)
         fetch_response.raise_for_status()
         # returns dict mapping PMID->abstract
-        abstracts = parse_abstracts(fetch_response.text)
+        abstracts = self.parse_abstracts(fetch_response.text)
 
         results = []
         # for each PMID returned, pull all data
@@ -126,7 +129,7 @@ class PubmedSearchTool(Tool):
         # return list of articles
         return results
 
-    def parse_abstracts(xml_response:str):
+    def parse_abstracts(self, xml_response:str):
         """
         Parse abstracts from PubMed XML response.
 
