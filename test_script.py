@@ -1,3 +1,4 @@
+import tools
 from agent import RagAgent
 
 if __name__ == "__main__":
@@ -13,6 +14,7 @@ if __name__ == "__main__":
     agent = RagAgent(
         llm=model, 
         tools={
+            "search_pubmed": tools.PubmedSearchTool(),
             # "web_search": DuckDuckGoSearchTool(max_results=10),
             # "visit_webpage": VisitWebpageTool(),
             # "wikipedia_search": WikipediaSearchTool(max_results=4)

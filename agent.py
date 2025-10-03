@@ -1,9 +1,11 @@
+import json
+
 from typing import TypedDict, List, Dict, Any, Optional, Tuple
 from pydantic import BaseModel
 from litellm import completion
 from langgraph.graph import StateGraph, START, END
 
-import tools
+from tools import Tool
 
 ####################
 # Assistant prompts
@@ -126,6 +128,8 @@ class AgentState(TypedDict):
     api_key: Optional[str] = None
     # optional URL where inference client is located
     base_url: Optional[str] = None
+    # dict of tools the research agent can use, mapping names to tool objects
+    tools: Dict[str, Tool] = {}
     # # system prompt including tools the agent is allowed to use
     # system_prompt: str
     # the user's question that we're trying to answer
@@ -270,13 +274,19 @@ def do_research_step(state:AgentState):
             'content': prompt
         }
     ]
+    # get tool descriptions
+    if len(state['tools']) > 0:
+        tool_info = [t.llm_definition for t in state['tools'].values()]
+    else:
+        tool_info = []
+    
     # get LLM response
     response = completion(
         model=state['llm'],
         api_key=state['api_key'],
         base_url=state['base_url'],
         messages=messages,
-        tools=[tools.PubmedSearchTool.llm_definition],
+        tools=tool_info,
         stream=False,
         max_tokens=1024,
         temperature=1.0,
@@ -288,6 +298,12 @@ def do_research_step(state:AgentState):
     tool_calls = ai_msg['tool_calls']
     if tool_calls is not None:
         print("Research agent called tools:\n" + str(tool_calls))
+        response = ""
+        for tc in tool_calls:
+            print(str(dir(tc)))
+            called_tool = state['tools'].get(tc.function.name)
+            tool_args = json.loads(tc.function.arguments)
+            response += "\n" + str(called_tool.call(**tool_args))
         response = str(tool_calls)
     else:
         print("Raw text:" + ai_msg['content'])
@@ -405,7 +421,7 @@ class RagAgent:
     """
 
     def __init__(
-        self, llm:str, tools:Dict[str, Any]={}, py_imports:List[str]=[],
+        self, llm:str, tools:Dict[str, Tool]={}, py_imports:List[str]=[],
         api_key:str = None, base_url:str = None
     ):
         """
@@ -421,6 +437,7 @@ class RagAgent:
         self.llm = llm
         self.api_key = api_key
         self.base_url = base_url
+        self.tools = tools
         # create system prompt
         # self.system_prompt = initialize_system_prompt(
         #     sys_prompt=SMOL_CODE_PROMPT,
@@ -456,6 +473,8 @@ class RagAgent:
             "llm": self.llm,
             "api_key": self.api_key,
             "base_url": self.base_url,
+            # tools for the LLM
+            "tools": self.tools,
             # the user's question that we're trying to answer
             "user_query": question,
             # blank plan
