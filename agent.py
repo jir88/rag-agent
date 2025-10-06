@@ -280,35 +280,48 @@ def do_research_step(state:AgentState):
     else:
         tool_info = []
     
-    # get LLM response
-    response = completion(
-        model=state['llm'],
-        api_key=state['api_key'],
-        base_url=state['base_url'],
-        messages=messages,
-        tools=tool_info,
-        stream=False,
-        max_tokens=1024,
-        temperature=1.0,
-        top_p=0.95
-    )
-    ai_msg = response['choices'][0]['message']
+    combined_response = ""
+    # we allow the LLM to make a certain number of tool calls
+    n_calls_remaining = 4
+    while n_calls_remaining > 0:
+        # get LLM response
+        response = completion(
+            model=state['llm'],
+            api_key=state['api_key'],
+            base_url=state['base_url'],
+            messages=messages,
+            tools=tool_info,
+            stream=False,
+            max_tokens=2048,
+            temperature=1.0,
+            top_p=0.95
+        )
+        ai_msg = response['choices'][0]['message']
+        # check if LLM made one or more tool calls
+        tool_calls = ai_msg['tool_calls']
+        if tool_calls is not None:
+            for tc in tool_calls:
+                print("Research agent called tool: " + tc.function.name)
+                called_tool = state['tools'].get(tc.function.name)
+                tool_args = json.loads(tc.function.arguments)
+                print("Arguments: " + str(tool_args))
+                tool_response = called_tool.call(**tool_args)
+                combined_response += "\n" + str(tool_response)
+                # add tool response message
+                messages.append({
+                    "role": "tool",
+                    "content": str(tool_response),
+                })
+            # decrement counter
+            n_calls_remaining -= 1
+        else:
+            print("Raw text:" + ai_msg['content'])
+            combined_response += ai_msg['content']
+            # zero out counter
+            n_calls_remaining = 0
 
-    # check if LLM made a tool call
-    tool_calls = ai_msg['tool_calls']
-    if tool_calls is not None:
-        print("Research agent called tools:\n" + str(tool_calls))
-        response = ""
-        for tc in tool_calls:
-            print(str(dir(tc)))
-            called_tool = state['tools'].get(tc.function.name)
-            tool_args = json.loads(tc.function.arguments)
-            response += "\n" + str(called_tool.call(**tool_args))
-    else:
-        print("Raw text:" + ai_msg['content'])
-        response = ai_msg['content']
     return {
-        'final_answer': response
+        'final_answer': combined_response
     }
 
 def summarize_research_result(state:AgentState):
