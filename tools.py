@@ -40,7 +40,7 @@ class PubmedSearchTool(Tool):
         },
     }
 
-    def call(self, query:str, start_results:int=0, max_results:int=10, sort:str='pub_date') -> List[Dict]:
+    def call(self, query:str, start_results:int=0, max_results:int=10, sort:str='pub_date') -> str:
         """
         Searches PubMed for scientific publications using a given query. 
         Returns a list of dicts containing the metadata
@@ -112,20 +112,36 @@ class PubmedSearchTool(Tool):
         # returns dict mapping PMID->abstract
         abstracts = self.parse_abstracts(fetch_response.text)
 
-        results = []
+        # results = []
+        article_template = \
+            """
+
+            [{pmid}] **{title}**
+            {source}, {date}
+
+            {abstract}
+            """
+        results = ""
         # for each PMID returned, pull all data
         for pmid in ids:
             # get metadata
             article_meta = summaries['result'][pmid]
-            results.append({
-                    "pubmed_id": pmid,
-                    "doi": article_meta.get('elocationid', ""),
-                    "title": article_meta.get("title", ""),
-                    "date": article_meta.get('sortpubdate', ""),
-                    "authors": article_meta.get('authors', []),
-                    "source": article_meta.get('source', ""),
-                    "abstract": abstracts.get(pmid, "")
-                })
+            results += article_template.format(
+                pmid = pmid,
+                title = article_meta.get("title", ""),
+                date = article_meta.get('sortpubdate', ""),
+                source = article_meta.get('source', ""),
+                abstract = abstracts.get(pmid, "")
+            )
+            # results.append({
+            #         "pubmed_id": pmid,
+            #         "doi": article_meta.get('elocationid', ""),
+            #         "title": article_meta.get("title", ""),
+            #         "date": article_meta.get('sortpubdate', ""),
+            #         "authors": article_meta.get('authors', []),
+            #         "source": article_meta.get('source', ""),
+            #         "abstract": abstracts.get(pmid, "")
+            #     })
         # return list of articles
         return results
 
