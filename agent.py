@@ -7,6 +7,28 @@ from langgraph.graph import StateGraph, START, END
 
 from tools import Tool
 
+import phoenix as px
+from phoenix.otel import register
+
+from openinference.instrumentation.litellm import LiteLLMInstrumentor
+from opentelemetry import trace
+
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+
+# set up Arize Phoenix tracing
+# session = px.launch_app()
+endpoint = "http://127.0.0.1:6006/v1/traces"
+tracer_provider = register(
+  project_name="rag-agent", # Default is 'default'
+  auto_instrument=True, # Auto-instrument your app based on installed OI dependencies
+  endpoint=endpoint,
+  batch=True
+)
+# now that we've set up a provider, grab the actual tracer being used
+tracer = trace.get_tracer(__name__)
+
 ####################
 # Assistant prompts
 ####################
@@ -502,7 +524,8 @@ class RagAgent:
             # no output yet
             'last_output': "",
         }
-        final_result = self.agent_graph.invoke(agent_state)
+        with tracer.start_as_current_span("Invoke RagAgent"):
+            final_result = self.agent_graph.invoke(agent_state)
         print(final_result)
         return final_result
 
