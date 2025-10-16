@@ -23,5 +23,8 @@ if __name__ == "__main__":
         base_url=base_url
     )
 
-    result = agent.submit_question("Search online for recent research on bile acid metabolism and write a detailed report describing any significant findings.")
+    query = """Search PubMed for recent research on bile acid metabolism. 
+        Look for both host and microbiome interactions with bile acids, and the 
+        effects of these interactions on disease. Cite your sources using PubMed IDs (PMID)."""
+    result = agent.submit_question(question=query)
     print(result['final_answer'])
