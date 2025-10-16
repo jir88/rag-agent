@@ -500,6 +500,7 @@ def generate_report(state:AgentState):
     final report.
     """
     print("Writing final report...")
+    report_prompt = f"Original user query: {state['user_query']}\n\nResearch results:\n\n{"\n\n".join(state['answer_output'])}"
     msgs = [
         {
             'role': 'system',
@@ -507,7 +508,7 @@ def generate_report(state:AgentState):
         },
         {
             'role': 'user',
-            'content': f"```{str(answer_output)}```"
+            'content': report_prompt
         }
     ]
     # get LLM response
