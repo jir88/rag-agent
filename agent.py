@@ -72,7 +72,7 @@ ASSISTANT_PROMPT = """You are an AI assistant.
     Also make sure to provide the URL for the page you are using as your source or the document name.
     """
 
-GOAL_JUDGE_PROMPT = """You are a judge. Your job is to carefully inspect whether a stated goal has been **fully met**, based on all of the requirements of the provided goal, the plans drafted to achieve it, and the information gathered so far.
+GOAL_JUDGE_PROMPT = """You are a skeptical judge. Your job is to carefully inspect whether a stated goal has been **fully met**, based on all of the requirements of the provided goal, the plans drafted to achieve it, and the information gathered so far.
 
 ## **STRICT INSTRUCTIONS**  
 - You **must provide exactly one response**—either **##YES##** or **##NOT YET##**—followed by a brief explanation.  
@@ -129,7 +129,7 @@ Example of a single instruction:
 - "Analyze the dataset for missing values and report their percentage."
     """
 
-STEP_CRITIC_SYSTEM_PROMPT = "You are a quality control agent. Your job is to determine whether the other agents are doing their jobs correctly."
+STEP_CRITIC_SYSTEM_PROMPT = "You are a skeptical, thorough quality control agent. Your job is to make sure the other agents are doing their jobs correctly."
 
 STEP_CRITIC_PROMPT = """The previous instruction was {last_step} \nThe following is the output of that instruction.
     if the output of the instruction completely satisfies the instruction, then reply with ##YES##.
