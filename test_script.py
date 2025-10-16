@@ -23,4 +23,5 @@ if __name__ == "__main__":
         base_url=base_url
     )
 
-    agent.submit_question("Search online for recent research on bile acid metabolism and write a detailed report describing any significant findings.")
+    result = agent.submit_question("Search online for recent research on bile acid metabolism and write a detailed report describing any significant findings.")
+    print(result['final_answer'])

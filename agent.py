@@ -140,6 +140,10 @@ STEP_CRITIC_PROMPT = """The previous instruction was {last_step} \nThe following
     If it does not satisfy the instruction, please think about what went wrong with the previous instruction and give me an explanation along with the text ##NO##. \n
     Previous step output: \n {last_output}"""
 
+REPORT_WRITER_SYSTEM_PROMPT = """You are an expert technical writer. Your job is to take sources and summaries from other agents
+    and use that information to produce an in depth report that answers the user's original query. Do not supplement with your own knowledge.
+    Cite sources as you use them."""
+
 class AgentPlan(BaseModel):
     """Pydantic model defining how LLM should format steps in its research plan."""
     steps: list[str]
@@ -496,7 +500,31 @@ def generate_report(state:AgentState):
     final report.
     """
     print("Writing final report...")
-    pass
+    msgs = [
+        {
+            'role': 'system',
+            'content': REPORT_WRITER_SYSTEM_PROMPT
+        },
+        {
+            'role': 'user',
+            'content': f"```{str(answer_output)}```"
+        }
+    ]
+    # get LLM response
+    response = completion(
+        model=state['llm'],
+        api_key=state['api_key'],
+        base_url=state['base_url'],
+        messages=msgs,
+        stream=False,
+        max_tokens=2048,
+        temperature=1.0,
+        top_p=0.95
+    )
+    report = response['choices'][0]['message']["content"]
+    return {
+        'final_answer': report
+    }
 
 class RagAgent:
     """
@@ -629,7 +657,7 @@ class RagAgent:
         }
         with tracer.start_as_current_span("Invoke RagAgent"):
             final_result = self.agent_graph.invoke(agent_state)
-        print(final_result)
+        print("Agent finished!")
         return final_result
 
     def _initialize_agent_graph(self):
