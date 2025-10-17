@@ -252,7 +252,7 @@ def do_research_step(state:AgentState):
     # start assembling the actual prompt
     prompt = instruction
     if len(answer_output) > 0:
-        prompt += f"\n Contextual Information:\n{answer_output}"
+        prompt += f"\n Contextual Information:\n\n{"\n\n".join(answer_output)}"
 
     # assemble the messages
     messages = [
@@ -377,8 +377,8 @@ def evaluate_step_success(state:AgentState):
     else:
         # Only append the previous step and its output to the record if it accomplished its task successfully.
         # It was found that storing information about unsuccesful steps causes more confusion than help to the agents
-        answer_output.append(state['last_output'])
-        steps_taken.append(state['last_step'])
+        answer_output.extend(state['last_output'])
+        steps_taken.extend(state['last_step'])
     
     return {
         'answer_output': answer_output,
