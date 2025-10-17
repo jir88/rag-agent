@@ -33,7 +33,7 @@ tracer = trace.get_tracer(__name__)
 ####################
 # Assistant prompts
 ####################
-PLANNER_MESSAGE = """You are a task planner. You will be given a task. Your job is to think step by step and enumerate the steps to complete a given task, using the provided context to guide you. Focus on information gathering and analysis steps. You will hand your results off to another agent who will write the final report.
+PLANNER_MESSAGE = """You are a task planner. You will be given a task. Your job is to think step by step and enumerate the steps to complete a given task, using the provided context to guide you. Focus on information gathering and analysis steps. Do not include a report-writing step. You will hand your results off to another agent who will write the final report.
     You will not execute the steps yourself, but provide the steps to a helper who will execute them. Make sure each step consists of a single operation, not a series of operations. The helper has the following capabilities:
     1. Search through a collection of documents provided by the user. These are the user's own documents and will likely not have latest news or other information you can find on the internet.
     2. Synthesize, summarize and classify the information received.
@@ -141,8 +141,9 @@ STEP_CRITIC_PROMPT = """The previous instruction was {last_step} \nThe following
     Previous step output: \n {last_output}"""
 
 REPORT_WRITER_SYSTEM_PROMPT = """You are an expert technical writer. Your job is to take sources and summaries from other agents
-    and use that information to produce an in depth report that answers the user's original query. Do not supplement with your own knowledge.
-    Cite sources as you use them."""
+    and synthesize that information to produce an in depth report that answers the user's original query. Do not supplement with your own knowledge.
+    Rewrite and reorganize the agents' findings as needed to create a logically-organized, well-written report. Write using full
+    paragraphs. Include an introduction and a conclusion. Cite sources as you use them, preferably with PMIDs or DOIs if available."""
 
 class AgentPlan(BaseModel):
     """Pydantic model defining how LLM should format steps in its research plan."""
