@@ -1,5 +1,4 @@
 import json
-import pprint
 
 from typing import TypedDict, List, Dict, Any, Optional, Tuple
 from pydantic import BaseModel
@@ -101,7 +100,7 @@ GOAL_JUDGE_PROMPT = """You are a skeptical judge. Your job is to carefully inspe
 ## **REMEMBER:**  
 - **Provide only ONE response**: either **##YES##** or **##NOT YET##**.  
 - The explanation must be **concise**—no more than **1-2 sentences**.  
-- **If even a small part of the goal is unfulfilled, reply with ##NOT YET##.**  
+- **Be skeptical: if even a small part of the goal is unfulfilled, reply with ##NOT YET##.**  
     """
 
 REFLECTION_ASSISTANT_PROMPT = """You are a strategic planner focused on executing sequential steps to achieve a given goal. You will receive data in JSON format containing the current state of the plan and its progress. Your task is to determine the single next step, ensuring it aligns with the overall goal and builds upon the previous steps.
@@ -131,19 +130,22 @@ Example of a single instruction:
 
 STEP_CRITIC_SYSTEM_PROMPT = "You are a skeptical, thorough quality control agent. Your job is to make sure the other agents are doing their jobs correctly."
 
-STEP_CRITIC_PROMPT = """The previous instruction was {last_step} \nThe following is the output of that instruction.
-    if the output of the instruction completely satisfies the instruction, then reply with ##YES##.
-    For example, if the instruction is to list companies that use AI, then the output contains a list of companies that use AI.
-    If the output contains the phrase 'I'm sorry but...' then it is likely not fulfilling the instruction. \n
-    If the output of the instruction does not properly satisfy the instruction, then reply with ##NO## and the reason why.
-    For example, if the instruction was to list companies that use AI but the output does not contain a list of companies, or states that a list of companies is not available, then the output did not properly satisfy the instruction.
-    If it does not satisfy the instruction, please think about what went wrong with the previous instruction and give me an explanation along with the text ##NO##. \n
-    Previous step output: \n {last_output}"""
+STEP_CRITIC_PROMPT = "The previous instruction was:\n\n{last_step}\n\nThe following is the output of that instruction. \
+    if the output of the instruction completely satisfies the instruction, then reply with ##YES##. \
+    For example, if the instruction is to list companies that use AI, then the output contains a list of companies that use AI. \
+    If the output contains the phrase 'I'm sorry but...' then it is likely not fulfilling the instruction.\n\n \
+    If the output of the instruction does not properly satisfy the instruction, then reply with ##NO## and the reason why. \
+    For example, if the instruction was to list companies that use AI but the output does not contain a list of companies, \
+    or states that a list of companies is not available, then the output did not properly satisfy the instruction. \
+    If it does not satisfy the instruction, please think about what went wrong with the previous instruction and give me an \
+    explanation along with the text ##NO##. \n\n \
+    Previous step output:\n\n{last_output}"
 
-REPORT_WRITER_SYSTEM_PROMPT = """You are an expert technical writer. Your job is to take sources and summaries from other agents
-    and synthesize that information to produce an in depth report that answers the user's original query. Do not supplement with your own knowledge.
-    Rewrite and reorganize the agents' findings as needed to create a logically-organized, well-written report. Write using full
-    paragraphs. Include an introduction and a conclusion. Cite sources as you use them, preferably with PMIDs or DOIs if available."""
+REPORT_WRITER_SYSTEM_PROMPT = "You are an expert technical writer. Your job is to take sources and summaries from other agents \
+    and synthesize that information to produce an in depth report that answers the user's original query. Do not supplement \
+    with your own knowledge. Rewrite and reorganize the agents' findings as needed to create a logically-organized, \
+    well-written report. Write using full paragraphs. Include an introduction and a conclusion. Cite sources as you \
+    use them, preferably with PMIDs or DOIs if available."
 
 class AgentPlan(BaseModel):
     """Pydantic model defining how LLM should format steps in its research plan."""
@@ -272,7 +274,7 @@ def do_research_step(state:AgentState):
     else:
         tool_info = []
     
-    combined_response = []
+    combined_response = ""
     # we allow the LLM to make a certain number of tool calls
     n_calls_remaining = 4
     while n_calls_remaining > 0:
@@ -309,7 +311,7 @@ def do_research_step(state:AgentState):
         else:
             print("Raw text:" + ai_msg['content'])
             # Check: final answer *should* start with ##ANSWER##
-            combined_response.append(ai_msg['content'])
+            combined_response += "\n\n" + ai_msg['content']
             # zero out counter
             n_calls_remaining = 0
 
@@ -378,7 +380,7 @@ def evaluate_step_success(state:AgentState):
     else:
         # Only append the previous step and its output to the record if it accomplished its task successfully.
         # It was found that storing information about unsuccesful steps causes more confusion than help to the agents
-        answer_output.extend(state['last_output'])
+        answer_output.extend([state['last_output']])
         steps_taken.extend(state['last_step'])
     
     return {
@@ -419,7 +421,7 @@ def check_agent_progress(state:AgentState):
         },
         {
             'role': 'user',
-            'content': f"```{pprint.pformat(goal_message, indent=2)}```"
+            'content': f"```{str(goal_message)}```"
         }
     ]
     # get LLM response
@@ -444,10 +446,10 @@ def check_agent_progress(state:AgentState):
     # we're not done, so ask the reflection agent for the next step
     message = {
         "Goal": state['user_query'],
-        "Plan": pprint.pformat(state['plan']),
+        "Plan": str(state['plan']),
         "Last Step": state['reflection_message'],
         "Last Step Output": str(state['last_output']),
-        "Steps Taken": pprint.pformat(state['steps_taken']),
+        "Steps Taken": str(state['steps_taken']),
     }
     msgs = [
         {
@@ -456,7 +458,7 @@ def check_agent_progress(state:AgentState):
         },
         {
             'role': 'user',
-            'content': f"```{pprint.pformat(message)}```"
+            'content': f"```{str(message)}```"
         }
     ]
     # get LLM response
