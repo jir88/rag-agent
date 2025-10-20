@@ -32,7 +32,7 @@ class PubmedSearchTool(Tool):
                 "properties": {
                     "query": {
                         "type": "string",
-                        "description": "A query string using PubMed query syntax. Multiple terms should be joined with AND or OR (e.g. stroke AND genomics)."
+                        "description": "A query string using PubMed query syntax. Uses literal keyword matching. Multiple terms should be joined with AND or OR (e.g. stroke AND genomics). Prefer multiple separate simple queries over a single complex query."
                     }
                 },
                 "required": ["query"],
