@@ -1,21 +1,14 @@
 import json
 
-from typing import TypedDict, List, Dict, Any, Optional, Tuple
+from typing import TypedDict, List, Dict, Optional
 from pydantic import BaseModel
 from litellm import completion
 from langgraph.graph import StateGraph, START, END
 
 from tools import Tool
 
-import phoenix as px
 from phoenix.otel import register
-
-from openinference.instrumentation.litellm import LiteLLMInstrumentor
 from opentelemetry import trace
-
-from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 
 # set up Arize Phoenix tracing
 # session = px.launch_app()
