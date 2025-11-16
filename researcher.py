@@ -128,3 +128,106 @@ def start_research(state: ResearchState):
         "researcher_notes": [plan.format_readable()],
         "mode": "search",
     }
+
+class ResearchAgent:
+    """
+    An LLM-powered agent tuned for doing literature reviews via PubMed.
+    """
+
+    def __init__(self, llm:str, api_key:str = None, base_url:str = None):
+        """
+        Create a new research agent with a back-end LLM.
+
+        Args:
+            llm (str): LiteLLM identifier of the model to use for LLM inference
+            api_key (str): Optional API key if the LLM service requires it
+            base_url (str): Optional custom URL where LLM service is located
+        """
+        self.llm = llm
+        self.api_key = api_key
+        self.base_url = base_url
+
+        # build the agent graph
+        self._initialize_agent_graph()
+    
+    def submit_question(self, question:str):
+        """
+        Submit a question for this agent to research.
+
+        Args:
+            question (str): The question text.
+        
+        Returns:
+            Answer to question in text form based on a literature review via PubMed.
+        """
+        # build initial state
+        agent_state = {
+            # the inference client we're using to talk to an LLM
+            "llm": self.llm,
+            "api_key": self.api_key,
+            "base_url": self.base_url,
+            # the user's question that we're trying to answer
+            "user_query": question,
+            # blank plan
+            "plan": [],
+            # number of search rounds we've tried
+            "n_search_rounds": 0,
+            # maximum number of search rounds
+            "max_search_rounds": 10,
+            # the number of search results to return from a search
+            "num_pubmed_results": 5,
+            # whether we are still searching
+            "mode": None,
+            # PubMed queries the agent has tried
+            "pubmed_queries": None,
+            # the number of 'pages' searched for each query
+            "pubmed_query_pages": None,
+            # current PubMed query
+            "current_pubmed_query": None,
+            "current_result_ids": None,
+            # dict of dicts containing article metadata, keys are PMIDs
+            "articles": None,
+            # dict of article summaries, keys are PMIDs
+            "article_summaries": None,
+            # researcher notes at each step
+            "researcher_notes": None
+        }
+        with tracer.start_as_current_span("Invoke ResearchAgent"):
+            final_result = self.agent_graph.invoke(agent_state)
+        print("Agent finished!")
+        return final_result
+
+    def _initialize_agent_graph(self):
+        """
+        Assemble the agent graph and compile it.
+        """
+        # construct graph object
+        self.agent_graph = StateGraph(ResearchState)
+
+        # define nodes
+        self.agent_graph.add_node("start_research", start_research)
+        # self.agent_graph.add_node("do_research_step", do_research_step)
+        # self.agent_graph.add_node("evaluate_step_success", evaluate_step_success)
+        # self.agent_graph.add_node("summarize_research_result", summarize_research_result)
+        # self.agent_graph.add_node("check_agent_progress", check_agent_progress)
+        # self.agent_graph.add_node("generate_report", generate_report)
+        
+        # define edges
+        self.agent_graph.add_edge(START, "start_research")
+        self.agent_graph.add_edge("start_research", END)
+        # self.agent_graph.add_edge("make_plan", "do_research_step")
+        # self.agent_graph.add_edge("do_research_step", "summarize_research_result")
+        # self.agent_graph.add_edge("summarize_research_result", "evaluate_step_success")
+        # self.agent_graph.add_edge("evaluate_step_success", "check_agent_progress")
+        # self.agent_graph.add_conditional_edges(
+        #     "check_agent_progress",
+        #     decide_next_step,
+        #     {
+        #         "continue": "do_research_step",
+        #         "respond": "generate_report"
+        #     }
+        # )
+        # self.agent_graph.add_edge("generate_report", END)
+        
+        # compile graph
+        self.agent_graph = self.agent_graph.compile()
