@@ -430,7 +430,7 @@ def check_agent_progress(state:AgentState):
     )
     was_goal_accomplished = response['choices'][0]['message']["content"]
     # have we gotten all the information we need?
-    if not "##NOT YET##" in was_goal_accomplished:
+    if "##NOT YET##" not in was_goal_accomplished:
         # not NOT done, so we're finished
         return {
             'has_final_answer': True
