@@ -29,6 +29,18 @@ tracer_provider = register(
 # now that we've set up a provider, grab the actual tracer being used
 tracer = trace.get_tracer(__name__)
 
+class AgentPlan(BaseModel):
+    """An agent's research plan as a list of steps to take."""
+    
+    steps: List[str] = Field(description="A list of individual steps in the agent's plan.")
+
+    def format_readable(self) -> str:
+        """Convert the plan into a well-formatted string."""
+        # format steps
+        step_txt = ["Step " + str(index) + ": " + step for index,step in enumerate(self.steps, start=1)]
+        # join and return
+        return "\n\n".join(step_txt)
+
 # ------------------------- Agent State -----------------------
 
 
@@ -39,8 +51,6 @@ class ResearchState(TypedDict):
     api_key: Optional[str] = None
     # optional URL where inference client is located
     base_url: Optional[str] = None
-    # dict of tools the agent can use, mapping names to tool objects
-    tools: Dict[str, Tool] = {}
     # the user's question that we're trying to answer
     user_query: Optional[str]
     # number of search rounds we've tried
@@ -75,8 +85,8 @@ def start_research(state: ResearchState):
     # PI/user formats prompts as requests for research
     main_research_prompt = (
         "You are an intelligent, skeptical graduate student at a prestigious university. \
-    You excel at critical thinking. Your thesis advisor has asked you to do a literature search and \
-    summarize the results in a detailed report."
+        You excel at critical thinking. Your thesis advisor has asked you to do a literature search and \
+        summarize the results in a detailed report."
     )
 
     # initial prompt to start the research process
@@ -85,29 +95,36 @@ def start_research(state: ResearchState):
     Before starting, please formulate a concise, high-level outline of the topics you will need to cover \
     in your literature review. Outline only the topics themselves. No extra commentary."
 
-    # canned researcher 'response' before formulating the PubMed query
-    initial_researcher_response = (
-        "I will begin by searching PubMed for articles on this topic, starting \
-    with general reviews of the field."
+    planning_messages = [
+        {
+            'role': 'system',
+            'content': main_research_prompt
+        },
+        {
+            'role': 'user',
+            'content': initial_query_prompt.format(research_topic=state["user_query"])
+        }
+    ]
+    # get the plan
+    response = completion(
+        model=state['llm'],
+        api_key=state['api_key'],
+        base_url=state['base_url'],
+        messages=planning_messages,
+        response_format=AgentPlan,
+        stream=False,
+        max_tokens=1024,
+        temperature=1.0,
+        top_p=0.95
     )
-
-    # get the LLM
-    llm = state["llm"]
-    # prompt for the first step
-    # we need to add the main prompt to the LLM
-    with guidance.system():
-        llm += main_research_prompt
-    # now add the research instruction
-    with guidance.user():
-        llm += initial_query_prompt.format(research_topic=state["user_query"])
-    # add a canned researcher 'response'
-    with guidance.assistant():
-        llm += guidance.gen(name="plan", max_tokens=1024, stop=["<end_of_turn>"])
-        # llm += initial_researcher_response
-    researcher_notes = llm["plan"]
+    
+    ai_msg = response['choices'][0]['message']
+    print("Raw text:" + ai_msg['content'])
+    plan = AgentPlan.model_validate_json(ai_msg['content'])
+    print("Initial plan:\n\n" + plan.format_readable())
+    
     return {
-        "llm": llm,
         "n_search_rounds": state["n_search_rounds"] + 1,
-        "researcher_notes": [researcher_notes],
+        "researcher_notes": [plan.format_readable()],
         "mode": "search",
     }
