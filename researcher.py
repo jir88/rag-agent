@@ -18,15 +18,15 @@ tracer_provider = register(
 # now that we've set up a provider, grab the actual tracer being used
 tracer = trace.get_tracer(__name__)
 
-class AgentPlan(BaseModel):
-    """An agent's research plan as a list of steps to take."""
+class TopicList(BaseModel):
+    """An agent's research plan as a list of topics to research."""
     
-    steps: List[str] = Field(description="A list of individual steps in the agent's plan.")
+    topics: List[str] = Field(description="A list of individual topics that need to be researched.")
 
     def format_readable(self) -> str:
-        """Convert the plan into a well-formatted string."""
+        """Convert the list into a well-formatted string."""
         # format steps
-        step_txt = ["Step " + str(index) + ": " + step for index,step in enumerate(self.steps, start=1)]
+        step_txt = ["Topic " + str(index) + ": " + step for index,step in enumerate(self.topics, start=1)]
         # join and return
         return "\n\n".join(step_txt)
 
@@ -100,7 +100,7 @@ def start_research(state: ResearchState):
         api_key=state['api_key'],
         base_url=state['base_url'],
         messages=planning_messages,
-        response_format=AgentPlan,
+        response_format=TopicList,
         stream=False,
         max_tokens=1024,
         temperature=1.0,
@@ -109,7 +109,7 @@ def start_research(state: ResearchState):
     
     ai_msg = response['choices'][0]['message']
     print("Raw text:" + ai_msg['content'])
-    plan = AgentPlan.model_validate_json(ai_msg['content'])
+    plan = TopicList.model_validate_json(ai_msg['content'])
     print("Initial plan:\n\n" + plan.format_readable())
     
     return {
