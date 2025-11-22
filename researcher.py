@@ -145,7 +145,9 @@ def compose_pubmed_query(state: ResearchState):
         # "[xylazine AND necrosis]\n"
         # "[pluripotent stem cells]"
     )
-    query_messages = state['messages']
+    # make a copy of the messages and add our request
+    query_messages = []
+    query_messages.extend(state['messages'])
     query_messages.append({
         'role': 'user',
         'content': query_compose_prompt
