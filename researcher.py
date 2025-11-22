@@ -125,6 +125,69 @@ def start_research(state: ResearchState):
         "mode": "search",
     }
 
+def compose_pubmed_query(state: ResearchState):
+    """
+    Given the current state of the research, write a new PubMed search query.
+    """
+    # prompt the LLM to make a PubMed query
+    query_compose_prompt = (
+        "Given the current state of your literature review, please write down a single PubMed "
+        "search query that will help fill in a gap in your literature review thus far. Prefer "
+        "concise queries using only one search term. Surround the query with square brackets, "
+        "[like this]. If a single-term query fails, join terms with AND, like this: "
+        "[first topic AND second topic]."
+        # "Examples:\n"
+        # "[urinary tract infection]\n"
+        # "[Klebsiella]\n"
+        # "[xylazine AND necrosis]\n"
+        # "[pluripotent stem cells]"
+    )
+    query_messages = state['messages']
+    query_messages.append({
+        'role': 'user',
+        'content': query_compose_prompt
+    })
+    # get the plan
+    response = completion(
+        model=state['llm'],
+        api_key=state['api_key'],
+        base_url=state['base_url'],
+        messages=query_messages,
+        stream=False,
+        max_tokens=256,
+        stop=["\n\n", "\n", "]"],
+        temperature=1.0,
+        top_p=0.95
+    )
+    
+    ai_msg = response['choices'][0]['message']
+    print("Raw text:" + ai_msg['content'])
+    new_query = ai_msg['content'].split('[')
+    if len(new_query) == 2:
+        new_query = new_query[1]
+        print("PubMed query: " + new_query)
+    else:
+        print("Badly formatted response: " + ai_msg['content'])
+        return {}
+    # if query list hasn't been made, make it
+    pubmed_queries = state.get('pubmed_queries')
+    pubmed_query_pages = state.get('pubmed_query_pages')
+    # if we haven't used this query before, add it
+    if pubmed_queries is None:
+        pubmed_queries = [ new_query ]
+        pubmed_query_pages = [ 0 ]
+    elif new_query in pubmed_queries: # if this query has been used before
+        pubmed_query_pages[pubmed_queries.index(new_query)] += 1
+    else: # query hasn't been used yet
+        pubmed_queries = pubmed_queries + [ new_query ]
+        pubmed_query_pages = pubmed_query_pages + [0]
+    # return updates to state
+    return {
+        'pubmed_queries': pubmed_queries,
+        'pubmed_query_pages': pubmed_query_pages,
+        'current_pubmed_query': new_query
+    }
+
 class ResearchAgent:
     """
     An LLM-powered agent tuned for doing literature reviews via PubMed.
@@ -202,16 +265,12 @@ class ResearchAgent:
 
         # define nodes
         self.agent_graph.add_node("start_research", start_research)
-        # self.agent_graph.add_node("do_research_step", do_research_step)
-        # self.agent_graph.add_node("evaluate_step_success", evaluate_step_success)
-        # self.agent_graph.add_node("summarize_research_result", summarize_research_result)
-        # self.agent_graph.add_node("check_agent_progress", check_agent_progress)
-        # self.agent_graph.add_node("generate_report", generate_report)
+        self.agent_graph.add_node("compose_pubmed_query", compose_pubmed_query)
         
         # define edges
         self.agent_graph.add_edge(START, "start_research")
-        self.agent_graph.add_edge("start_research", END)
-        # self.agent_graph.add_edge("make_plan", "do_research_step")
+        self.agent_graph.add_edge("start_research", "compose_pubmed_query")
+        self.agent_graph.add_edge("compose_pubmed_query", END)
         # self.agent_graph.add_edge("do_research_step", "summarize_research_result")
         # self.agent_graph.add_edge("summarize_research_result", "evaluate_step_success")
         # self.agent_graph.add_edge("evaluate_step_success", "check_agent_progress")
