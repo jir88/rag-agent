@@ -112,15 +112,16 @@ def start_research(state: ResearchState):
     ai_msg = response['choices'][0]['message']
     print("Raw text:" + ai_msg['content'])
     plan = TopicList.model_validate_json(ai_msg['content'])
-    print("Initial list of topics to research:\n\n" + plan.format_readable())
+    formatted_plan = plan.format_readable()
+    print("Initial list of topics to research:\n\n" + formatted_plan)
     # add the topic list to the list of messages
     planning_messages.append({
         'role': 'assistant',
-        'content': ai_msg['content']
+        'content': formatted_plan
     })
     return {
         "n_search_rounds": state["n_search_rounds"] + 1,
-        "researcher_notes": [plan.format_readable()],
+        "researcher_notes": [formatted_plan],
         "messages": planning_messages,
         "mode": "search",
     }
