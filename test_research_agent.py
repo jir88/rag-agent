@@ -1,3 +1,4 @@
+import json
 from researcher import ResearchAgent
 
 if __name__ == "__main__":
@@ -21,4 +22,4 @@ if __name__ == "__main__":
         with bile acids and the effects of these interactions on disease. Perform additional searches to obtain additional \
         detail on any noteworthy research topics uncovered. Record PubMed IDs (PMID) for every article you find."
     result = agent.submit_question(question=query)
-    print(result['final_answer'])
+    print(json.dumps(result, indent=2))
