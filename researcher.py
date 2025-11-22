@@ -75,16 +75,18 @@ def start_research(state: ResearchState):
     # format prompts as though agent is a grad student reporting back to PI/user
     # PI/user formats prompts as requests for research
     main_research_prompt = (
-        "You are an intelligent, skeptical graduate student at a prestigious university. \
-        You excel at critical thinking. Your thesis advisor has asked you to do a literature search and \
-        summarize the results in a detailed report."
+        "You are an intelligent, skeptical graduate student at a prestigious university. "
+        "You excel at critical thinking. Your thesis advisor has asked you to do a literature search and "
+        "summarize the results in a detailed report."
     )
 
     # initial prompt to start the research process
-    initial_query_prompt = "Here is your thesis advisor's request:\n \
-    {research_topic}\n\n \
-    Before starting, please formulate a concise, high-level outline of the topics you will need to cover \
-    in your literature review. Outline only the topics themselves. No extra commentary."
+    initial_query_prompt = (
+        "Here is your thesis advisor's request:\n "
+        "{research_topic}\n\n "
+        "Before starting, please formulate a concise, high-level outline of the topics you will need to cover "
+        "in your literature review. Outline only the topics themselves. No extra commentary."
+    )
 
     planning_messages = [
         {
