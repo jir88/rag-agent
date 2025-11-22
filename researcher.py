@@ -64,6 +64,8 @@ class ResearchState(TypedDict):
     article_summaries: Optional[Dict[str, str]]
     # researcher notes at each step
     researcher_notes: Optional[List[str]]
+    # message history for the LLM
+    messages: List[Dict[str, str]] = []
 
 
 def start_research(state: ResearchState):
