@@ -3,6 +3,8 @@ from pydantic import BaseModel, Field
 from litellm import completion
 from langgraph.graph import StateGraph, START, END
 
+from tools import PubmedSearchTool
+
 from phoenix.otel import register
 from opentelemetry import trace
 
@@ -138,7 +140,7 @@ def compose_pubmed_query(state: ResearchState):
         "search query that will help fill in a gap in your literature review thus far. Prefer "
         "concise queries using only one search term. Surround the query with square brackets, "
         "[like this]. If a single-term query fails, join terms with AND, like this: "
-        "[first topic AND second topic]."
+        "[first topic AND second topic]. However, single-term queries usually give better results."
         # "Examples:\n"
         # "[urinary tract infection]\n"
         # "[Klebsiella]\n"
@@ -192,6 +194,317 @@ def compose_pubmed_query(state: ResearchState):
         'pubmed_query_pages': pubmed_query_pages,
         'current_pubmed_query': new_query
     }
+
+def search_and_summarize(state: ResearchState):
+    """
+    Search PubMed using the most recent query and summarize each result.
+    If the query has been used before, get the next 'page' of results and
+    summarize those instead.
+    """
+    # prompt for summarizing a paper abstract
+    abstract_summary_prompt = (
+        "Please summarize the abstract of the following paper. Give a 2-3 sentence summary, "
+        "focusing on the portions of the abstract that are relevant to your literature review topic.\n\n"
+        "Title: {title}\n"
+        "Publication date: {date}\n"
+        "Abstract: {abstract}"
+    )
+    article_relevance_prompt = (
+        "Is this article relevant? In a single sentence, explain whether this article is relevant "
+        "to your literature review topic. If you think it is irrelevant, say so. Be skeptical."
+    )
+    # get the search string
+    current_query = state['current_pubmed_query']
+    # get query page
+    query_page = state['pubmed_query_pages'][state['pubmed_queries'].index(current_query)]
+    # ask for the next 'page' of results if repeated query
+    start_results = state['num_pubmed_results']*query_page
+    # run the actual search
+    search_tool = PubmedSearchTool()
+    pubmed_results = search_tool.search_pubmed(query=current_query, start_results=start_results,
+                                   max_results=state['num_pubmed_results'], sort='relevance')
+    # if search returned no results, tell the agent that
+    if (pubmed_results is None) or len(pubmed_results) == 0:
+        print(f"[Warning] PubMed query {current_query} returned no results!")
+        messages = state['messages']
+        messages.append({
+            'role': 'user',
+            'content': (
+                f"The PubMed query [{current_query}] did not return any results. "
+                "Consider checking for errors or trying a less-specific query."
+            )
+        })
+        messages.append({
+            'role': 'assistant',
+            'content': "Thank you for the feedback. I will try a different search approach next time."
+        })
+        return {
+            'current_result_ids': [],
+            # LLM with updated info on failed search
+            'messages': messages
+        }
+    print(pubmed_results)
+
+    # record IDs of new articles so we can discuss them
+    current_result_ids = []
+    # get the article and summary dicts
+    articles = state.get('articles')
+    if articles is None:
+        articles = {}
+    article_summaries = state.get('article_summaries')
+    if article_summaries is None:
+        article_summaries = {}
+    # grab LLM with current research state
+    for result in pubmed_results:
+        # check if we've already summarized this article
+        if result['pubmed_id'] not in article_summaries.keys():
+            # if not summarized
+            # add to result list
+            current_result_ids.append(result['pubmed_id'])
+            # make a temporary branch for article summarization
+            summary_msgs = []
+            summary_msgs.extend(state['messages'])
+            # summarize the abstract
+            summary_msgs.append({
+                'role': 'user',
+                'content': abstract_summary_prompt.format(
+                    title=result['title'],
+                    date=result['date'],
+                    abstract=result['abstract']
+                )
+            })
+            response = completion(
+                model=state['llm'],
+                api_key=state['api_key'],
+                base_url=state['base_url'],
+                messages=summary_msgs,
+                stream=False,
+                max_tokens=256,
+                # stop=["\n\n", "\n", "]"],
+                temperature=1.0,
+                top_p=0.95
+            )
+            summary = response['choices'][0]['message']
+            summary_msgs.append({
+                'role': 'assistant',
+                'content': summary['content']
+            })
+            
+            # evaluate article's relevance to the research topic
+            summary_msgs.append({
+                'role': 'user',
+                'content': article_relevance_prompt
+            })
+            response = completion(
+                model=state['llm'],
+                api_key=state['api_key'],
+                base_url=state['base_url'],
+                messages=summary_msgs,
+                stream=False,
+                max_tokens=256,
+                # stop=["\n\n", "\n", "]"],
+                temperature=1.0,
+                top_p=0.95
+            )
+            relevance = response['choices'][0]['message']
+            summary_msgs.append({
+                'role': 'assistant',
+                'content': relevance['content']
+            })
+            # add summary and relevance to article dict
+            result['summary'] = summary['content']
+            result['relevance'] = relevance['content']
+            # add to article set
+            articles[result['pubmed_id']] = result
+            # add to summaries
+            article_summaries[result['pubmed_id']] = result['summary']
+    # now return the updated article data
+    return {
+        "current_result_ids": current_result_ids,
+        "articles": articles,
+        "article_summaries": article_summaries
+    }
+
+def check_research_progress(state: ResearchState):
+    """
+    Decide whether the agent has collected enough information to answer the user's query.
+    Write a few sentences explaining what information is missing or else why there is now
+    enough information to respond to the user's query.
+    """
+    # article summary format
+    article_format = (
+        "[PMID {pubmed_id}] *{title}*\n"
+        "**Summary:** {summary}\n"
+        "**Relevance:** {relevance}\n\n"
+    )
+    prompt_search_result_summary = (
+        "In a few sentences, please summarize any relevant information retrieved from your search results. "
+        "Cite information using the source's PubMed ID surrounded by square brackets. Ignore any irrelevant information."
+    )
+    prompt_review_status = (
+        "Please summarize the over-all status of your literature review thus far. Update your topic "
+        "outline and indicate which topics require more information."
+    )
+    prompt_next_step = (
+        "Based on your progress thus far, do you need to try more PubMed queries, "
+        "or are you ready to write the final review? If you need to perform more searches, respond "
+        "with ##YES##. If you are ready to write the final review, respond with ##NO##."
+    )
+    # get the researcher notes
+    researcher_notes = state['researcher_notes']
+    # if there aren't any, start a list
+    if researcher_notes is None:
+        researcher_notes = []
+        # if no results, skip to another search
+    if len(state['current_result_ids']) == 0:
+        return {
+            'mode': "search",
+            'researcher_notes': researcher_notes.append("My search returned no results.")
+        }
+    # get the LLM
+    # ask for status of research first
+    # we need to decide what to do next
+    # we'll keep this off the main LLM chat
+    status_check_msgs = []
+    status_check_msgs.extend(state['messages'])
+    # we left off with the LLM selecting a query
+    # to keep conversation, have user 'ask' for search result summaries
+    status_check_msgs.append({
+        'role': 'user',
+        'content': "What papers did your search turn up? Were they relevant?"
+    })
+    # now have LLM 'respond' with the summaries
+    summary_txt = "I found the following papers:\n\n"
+    for pmid in state['current_result_ids']:
+        article = state['articles'][pmid]
+        summary_txt += article_format.format(
+            pubmed_id = article['pubmed_id'],
+            title = article['title'],
+            summary = article['summary'],
+            relevance = article['relevance']
+        )
+    status_check_msgs.append({
+        'role': 'assistant',
+        'content': summary_txt
+    })
+    # summarize the latest round of search results
+    status_check_msgs.append({
+        'role': 'user',
+        'content': prompt_search_result_summary
+    })
+    response = completion(
+        model=state['llm'],
+        api_key=state['api_key'],
+        base_url=state['base_url'],
+        messages=status_check_msgs,
+        stream=False,
+        max_tokens=512,
+        # stop=["\n\n", "\n", "]"],
+        temperature=1.0,
+        top_p=0.95
+    )
+    response = response['choices'][0]['message']
+    result_summary = response['content']
+    status_check_msgs.append({
+        'role': 'assistant',
+        'content': result_summary
+    })
+    
+    # summarize over-all progress and update goals as needed
+    status_check_msgs.append({
+        'role': 'user',
+        'content': prompt_review_status
+    })
+    response = completion(
+        model=state['llm'],
+        api_key=state['api_key'],
+        base_url=state['base_url'],
+        messages=status_check_msgs,
+        stream=False,
+        max_tokens=1024,
+        # stop=["\n\n", "\n", "]"],
+        temperature=1.0,
+        top_p=0.95
+    )
+    response = response['choices'][0]['message']
+    progress_summary = response['content']
+    status_check_msgs.append({
+        'role': 'assistant',
+        'content': progress_summary
+    })
+    # ask LLM to select next step, returning either 'YES' or 'NO' for whether more research is needed
+    status_check_msgs.append({
+        'role': 'user',
+        'content': prompt_next_step
+    })
+    response = completion(
+        model=state['llm'],
+        api_key=state['api_key'],
+        base_url=state['base_url'],
+        messages=status_check_msgs,
+        stream=False,
+        max_tokens=128,
+        # stop=["\n\n", "\n", "]"],
+        temperature=1.0,
+        top_p=0.95
+    )
+    response = response['choices'][0]['message']
+    next_step = response['content']
+    status_check_msgs.append({
+        'role': 'assistant',
+        'content': next_step
+    })
+    if "##YES##" in next_step:
+        mode = "search"
+    else:
+        mode = "report"
+    # update main LLM conversation with just the progress summaries
+    messages = state['messages']
+    messages.append({
+        'role': 'user',
+        'content': prompt_search_result_summary
+    })
+    messages.append({
+        'role': 'assistant',
+        'content': result_summary
+    })
+    messages.append({
+        'role': 'user',
+        'content': prompt_review_status
+    })
+    messages.append({
+        'role': 'assistant',
+        'content': progress_summary
+    })
+    # return results
+    return {
+        'messages': messages,
+        'n_search_rounds': state['n_search_rounds'] + 1,
+        'mode': mode,
+        'researcher_notes': researcher_notes.append(result_summary)
+    }
+
+def route_researcher(state: ResearchState) -> str:
+    """
+    Determine the next step based on the research mode. Possible options
+    are 'search' (run another PubMed search) or 'report' (write the final report).
+    """
+    # if we're past the maximum number of search rounds,
+    # we will go to report mode regardless of whether we're finished searching
+    if state['n_search_rounds'] > state['max_search_rounds']:
+        return "report"
+    # otherwise, we just respect the LLM's choice of modes
+    return state['mode']
+
+def compose_report(state):
+    """
+    Combine research results into a final report, including recommendations
+    for important articles to read.
+    """
+    # if mode is still 'search' and maximum search rounds exceeded, add a
+    # prompt here to acknowledge incomplete search and point out gaps when
+    # writing the report
+    return {}
 
 class ResearchAgent:
     """
@@ -271,23 +584,25 @@ class ResearchAgent:
         # define nodes
         self.agent_graph.add_node("start_research", start_research)
         self.agent_graph.add_node("compose_pubmed_query", compose_pubmed_query)
+        self.agent_graph.add_node("search_and_summarize", search_and_summarize)
+        self.agent_graph.add_node("check_research_progress", check_research_progress)
+        self.agent_graph.add_node("compose_report", compose_report)
         
         # define edges
         self.agent_graph.add_edge(START, "start_research")
         self.agent_graph.add_edge("start_research", "compose_pubmed_query")
-        self.agent_graph.add_edge("compose_pubmed_query", END)
-        # self.agent_graph.add_edge("do_research_step", "summarize_research_result")
-        # self.agent_graph.add_edge("summarize_research_result", "evaluate_step_success")
-        # self.agent_graph.add_edge("evaluate_step_success", "check_agent_progress")
-        # self.agent_graph.add_conditional_edges(
-        #     "check_agent_progress",
-        #     decide_next_step,
-        #     {
-        #         "continue": "do_research_step",
-        #         "respond": "generate_report"
-        #     }
-        # )
-        # self.agent_graph.add_edge("generate_report", END)
+        self.agent_graph.add_edge("compose_pubmed_query", "search_and_summarize")
+        self.agent_graph.add_edge("search_and_summarize", "check_research_progress")
+        # conditional edge for search mode or report mode
+        self.agent_graph.add_conditional_edges(
+            "check_research_progress",
+            route_researcher,
+            {
+                "search": "compose_pubmed_query",
+                "report": "compose_report"
+            }
+        )
+        self.agent_graph.add_edge("compose_report", END)
         
         # compile graph
         self.agent_graph = self.agent_graph.compile()
