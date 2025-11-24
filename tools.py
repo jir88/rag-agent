@@ -1,7 +1,6 @@
 import requests
-import time
 
-from typing import TypedDict, List, Dict, Any, Optional
+from typing import List, Dict, Any
 from xml.etree import ElementTree
 
 class Tool:
@@ -47,7 +46,47 @@ class PubmedSearchTool(Tool):
         of the first N search results. The dict has keys 'pubmed_id', 'doi', title',
         'date', 'authors', 'source', and 'abstract'.
 
-        Parameters:
+        Args:
+            query (str): A query string using PubMed query syntax. Multiple terms should be joined with AND or OR (e.g. stroke AND genomics).
+            start_results (int): The index of the first result to retrieve, zero-indexed; default 0.
+            max_results (int): Maximum number of articles to retrieve, default 10.
+            sort (str): How to sort search results. 'pub_date' returns most recently published results. 'relevance' returns the best matches to the query.
+
+        Returns:
+            A string containing the article metadata and abstracts.
+        """
+        article_template = (
+            "[{pmid}] **{title}**\n"
+            "{source}, {date}\n\n"
+            "{abstract}\n\n"
+        )
+        results = self.search_pubmed(
+            query=query,
+            start_results=start_results,
+            max_results=max_results,
+            sort=sort
+        )
+        formatted_results = ""
+        # for each PMID returned, pull all data
+        for article in results:
+            formatted_results += article_template.format(
+                pmid = article.get('pubmed_id'),
+                title = article.get("title", ""),
+                date = article.get('sortpubdate', ""),
+                source = article.get('source', ""),
+                abstract = article.get('abstract', "")
+            )
+        # return list of articles
+        return results
+
+    def search_pubmed(self, query:str, start_results:int=0, max_results:int=10, sort:str='pub_date') -> List[Dict[str, Any]]:
+        """
+        Searches PubMed for scientific publications using a given query. 
+        Returns a list of dicts containing the metadata
+        of the first N search results. The dict has keys 'pubmed_id', 'doi', title',
+        'date', 'authors', 'source', and 'abstract'.
+
+        Args:
             query (str): A query string using PubMed query syntax. Multiple terms should be joined with AND or OR (e.g. stroke AND genomics).
             start_results (int): The index of the first result to retrieve, zero-indexed; default 0.
             max_results (int): Maximum number of articles to retrieve, default 10.
@@ -112,39 +151,23 @@ class PubmedSearchTool(Tool):
         # returns dict mapping PMID->abstract
         abstracts = self.parse_abstracts(fetch_response.text)
 
-        # results = []
-        article_template = \
-            """
-
-            [{pmid}] **{title}**
-            {source}, {date}
-
-            {abstract}
-            """
-        results = ""
+        results = []
         # for each PMID returned, pull all data
         for pmid in ids:
             # get metadata
             article_meta = summaries['result'][pmid]
-            results += article_template.format(
-                pmid = pmid,
-                title = article_meta.get("title", ""),
-                date = article_meta.get('sortpubdate', ""),
-                source = article_meta.get('source', ""),
-                abstract = abstracts.get(pmid, "")
-            )
-            # results.append({
-            #         "pubmed_id": pmid,
-            #         "doi": article_meta.get('elocationid', ""),
-            #         "title": article_meta.get("title", ""),
-            #         "date": article_meta.get('sortpubdate', ""),
-            #         "authors": article_meta.get('authors', []),
-            #         "source": article_meta.get('source', ""),
-            #         "abstract": abstracts.get(pmid, "")
-            #     })
+            results.append({
+                    "pubmed_id": pmid,
+                    "doi": article_meta.get('elocationid', ""),
+                    "title": article_meta.get("title", ""),
+                    "date": article_meta.get('sortpubdate', ""),
+                    "authors": article_meta.get('authors', []),
+                    "source": article_meta.get('source', ""),
+                    "abstract": abstracts.get(pmid, "")
+                })
         # return list of articles
         return results
-
+    
     def parse_abstracts(self, xml_response:str):
         """
         Parse abstracts from PubMed XML response.
