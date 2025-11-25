@@ -378,12 +378,16 @@ def check_research_progress(state: ResearchState):
     summary_txt = "I found the following papers:\n\n"
     for pmid in state['current_result_ids']:
         article = state['articles'][pmid]
-        summary_txt += article_format.format(
-            pubmed_id = article['pubmed_id'],
-            title = article['title'],
-            summary = article['summary'],
-            relevance = article['relevance']
-        )
+        # only consider relevant articles here
+        if "YES" in article['relevance']:
+            summary_txt += article_format.format(
+                pubmed_id = article['pubmed_id'],
+                title = article['title'],
+                summary = article['summary'],
+                relevance = article['relevance']
+            )
+        else:
+            print("Irrelevant article: " + article['relevance'])
     status_check_msgs.append({
         'role': 'assistant',
         'content': summary_txt
