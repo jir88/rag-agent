@@ -23,4 +23,6 @@ if __name__ == "__main__":
         "microbiome interactions with bile acids and the effects of these interactions on disease."
     )
     result = agent.submit_question(question=query)
+    with open("output_research_state.json", mode='w') as fp:
+        json.dump(result, fp=fp, indent=2)
     print(json.dumps(result, indent=2))
