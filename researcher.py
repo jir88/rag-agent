@@ -573,7 +573,10 @@ class ResearchAgent:
             "researcher_notes": None
         }
         with tracer.start_as_current_span("Invoke ResearchAgent"):
-            final_result = self.agent_graph.invoke(agent_state)
+            final_result = self.agent_graph.invoke(
+                input=agent_state,
+                config={ "recursion_limit": 100 }
+            )
         print("Agent finished!")
         return final_result
 
