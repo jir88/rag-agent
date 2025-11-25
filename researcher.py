@@ -357,9 +357,10 @@ def check_research_progress(state: ResearchState):
         researcher_notes = []
         # if no results, skip to another search
     if len(state['current_result_ids']) == 0:
+        researcher_notes.append("My search returned no results.")
         return {
             'mode': "search",
-            'researcher_notes': researcher_notes.append("My search returned no results.")
+            'researcher_notes': researcher_notes
         }
     # get the LLM
     # ask for status of research first
@@ -476,12 +477,14 @@ def check_research_progress(state: ResearchState):
         'role': 'assistant',
         'content': progress_summary
     })
+    # add result summary to running list of notes
+    researcher_notes.append(result_summary)
     # return results
     return {
         'messages': messages,
         'n_search_rounds': state['n_search_rounds'] + 1,
         'mode': mode,
-        'researcher_notes': researcher_notes.append(result_summary)
+        'researcher_notes': researcher_notes
     }
 
 def route_researcher(state: ResearchState) -> str:
