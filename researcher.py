@@ -175,7 +175,7 @@ def compose_pubmed_query(state: ResearchState):
         messages=query_messages,
         stream=False,
         max_tokens=256,
-        stop=["\n\n", "\n", "]"],
+        stop=["]"],
         temperature=1.0,
         top_p=0.95
     )
@@ -293,7 +293,7 @@ def search_and_summarize(state: ResearchState):
                 base_url=state['base_url'],
                 messages=summary_msgs,
                 stream=False,
-                max_tokens=256,
+                max_tokens=512,
                 # stop=["\n\n", "\n", "]"],
                 temperature=1.0,
                 top_p=0.95
@@ -419,7 +419,7 @@ def check_research_progress(state: ResearchState):
         base_url=state['base_url'],
         messages=status_check_msgs,
         stream=False,
-        max_tokens=1024,
+        max_tokens=2048,
         # stop=["\n\n", "\n", "]"],
         temperature=1.0,
         top_p=0.95
@@ -442,7 +442,7 @@ def check_research_progress(state: ResearchState):
         base_url=state['base_url'],
         messages=status_check_msgs,
         stream=False,
-        max_tokens=1024,
+        max_tokens=2048,
         # stop=["\n\n", "\n", "]"],
         temperature=1.0,
         top_p=0.95
