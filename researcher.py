@@ -87,7 +87,7 @@ def start_research(state: ResearchState):
         "Here is your thesis advisor's request:\n "
         "{research_topic}\n\n "
         "Before starting, please formulate a concise, high-level outline of the topics you will need to cover "
-        "in your literature review. Outline only the topics themselves. No extra commentary."
+        "in your literature review. Outline only the topics themselves in JSON format. No extra commentary."
     )
 
     planning_messages = [
@@ -210,8 +210,10 @@ def search_and_summarize(state: ResearchState):
         "Abstract: {abstract}"
     )
     article_relevance_prompt = (
-        "Is this article relevant? In a single sentence, explain whether this article is relevant "
-        "to your literature review topic. If you think it is irrelevant, say so. Be skeptical."
+        "Is this article relevant? If it is relevant, write ##YES##. Then, in a single sentence, "
+        "explain how this article is relevant to your literature review topic. If you think it is "
+        "irrelevant, write ##NO##. Then explain why the article is irrelevant to your literature "
+        "review. Be skeptical."
     )
     # get the search string
     current_query = state['current_pubmed_query']
@@ -346,9 +348,11 @@ def check_research_progress(state: ResearchState):
         "outline and indicate which topics require more information."
     )
     prompt_next_step = (
-        "Based on your progress thus far, do you need to try more PubMed queries, "
-        "or are you ready to write the final review? If you need to perform more searches, respond "
-        "with ##YES##. If you are ready to write the final review, respond with ##NO##."
+        "Based on your progress thus far, are there more topics you need to research? "
+        "Are there gaps in your literature coverage that you need to fill? If you need "
+        " to keep searching the literature, respond with ##YES##. If you have completely "
+        "covered all research topics and do not need to do any more searches, respond with "
+        "##NO##. If any of your research topics require any more information, respond with ##YES##."
     )
     # get the researcher notes
     researcher_notes = state['researcher_notes']
