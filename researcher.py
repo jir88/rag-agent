@@ -599,8 +599,33 @@ def compose_report(state: ResearchState):
     )
     response = response['choices'][0]['message']
     report_outline = response['content']
+    # add to conversation
+    report_msgs.append({
+        'role': 'assistant',
+        'content': report_outline
+    })
+
+    # ask for full report
+    report_msgs.append({
+        'role': 'user',
+        'content': "Please write a complete report based on your outline, referencing the PubMed IDs of the sources you found."
+    })
+    response = completion(
+        model=state['llm'],
+        api_key=state['api_key'],
+        base_url=state['base_url'],
+        messages=report_msgs,
+        stream=False,
+        max_tokens=4096,
+        # stop=["\n\n", "\n", "]"],
+        temperature=1.0,
+        top_p=0.95
+    )
+    response = response['choices'][0]['message']
+    full_report = response['content']
+
     return {
-        "final_report": report_outline,
+        "final_report": "Outline:\n\n" + report_outline + "\n\nReport:\n\n" + full_report,
     }
 
 class ResearchAgent:
