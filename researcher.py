@@ -7,6 +7,7 @@ from tools import PubmedSearchTool
 
 from phoenix.otel import register
 from opentelemetry import trace
+from opentelemetry import trace as trace_api  # SDK for creating traces
 
 # set up Arize Phoenix tracing
 # session = px.launch_app()
@@ -665,11 +666,12 @@ class ResearchAgent:
             # researcher notes at each step
             "researcher_notes": None
         }
-        with tracer.start_as_current_span("Invoke ResearchAgent"):
+        with tracer.start_as_current_span("Invoke ResearchAgent") as session_span:
             final_result = self.agent_graph.invoke(
                 input=agent_state,
                 config={ "recursion_limit": 100 }
             )
+            session_span.set_status(trace_api.Status(trace_api.StatusCode.OK))
         print("Agent finished!")
         return final_result
 
