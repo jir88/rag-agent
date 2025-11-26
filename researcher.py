@@ -407,7 +407,7 @@ def check_research_progress(state: ResearchState):
         base_url=state['base_url'],
         messages=status_check_msgs,
         stream=False,
-        max_tokens=512,
+        max_tokens=1024,
         # stop=["\n\n", "\n", "]"],
         temperature=1.0,
         top_p=0.95
@@ -452,7 +452,7 @@ def check_research_progress(state: ResearchState):
         base_url=state['base_url'],
         messages=status_check_msgs,
         stream=False,
-        max_tokens=128,
+        max_tokens=256,
         # stop=["\n\n", "\n", "]"],
         temperature=1.0,
         top_p=0.95
