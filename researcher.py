@@ -68,6 +68,8 @@ class ResearchState(TypedDict):
     researcher_notes: Optional[List[str]]
     # message history for the LLM
     messages: List[Dict[str, str]] = []
+    # the final report
+    final_report: Optional[str] = None
 
 
 def start_research(state: ResearchState):
@@ -507,15 +509,89 @@ def route_researcher(state: ResearchState) -> str:
     # otherwise, we just respect the LLM's choice of modes
     return state['mode']
 
-def compose_report(state):
+def compose_report(state: ResearchState):
     """
     Combine research results into a final report, including recommendations
     for important articles to read.
     """
+    report_msgs = []
+    # research completed, so standard prompt
+    report_prompt = (
+        "You are an experienced and capable graduate student. You are writing a thorough "
+        "and comprehensive literature review for your thesis advisor. The literature reivew "
+        "topic is:\n\n{topic}\n\n"
+        "Here are the notes you took while searching the literature:\n\n{notes}\n\n"
+        "You found the following relevant papers:\n\n{papers}\n\n"
+        "You will take this information and synthesize it into a well-written literature review."
+    )
+
+    article_format = (
+        "[PMID {pubmed_id}] *{title}*\n"
+        "**Summary:** {summary}\n"
+        "**Relevance:** {relevance}\n\n"
+    )
+
     # if mode is still 'search' and maximum search rounds exceeded, add a
     # prompt here to acknowledge incomplete search and point out gaps when
     # writing the report
-    return {}
+    if state['mode'] == "search" and state['n_search_rounds'] > state['max_search_rounds']:
+        report_prompt += (
+            "\n\nYou ran out of time to finish searching the literature, so there are "
+            "some gaps in your information. Be sure to point out where more information "
+            "is needed."
+        )
+    
+    # initial outline prompt
+    outline_prompt = (
+        "Start by writing an outline of the review."
+    )
+
+    # assemble the research notes
+    notes = "\n\n".join(state['researcher_notes'])
+
+    # assemble the list of relevant articles
+    summary_txt = ""
+    for pmid in state['current_result_ids']:
+        article = state['articles'][pmid]
+        # only consider relevant articles here
+        if "YES" in article['relevance']:
+            summary_txt += article_format.format(
+                pubmed_id = article['pubmed_id'],
+                title = article['title'],
+                summary = article['summary'],
+                relevance = article['relevance']
+            )
+    
+    report_msgs.append({
+        'role': 'system',
+        'content': report_prompt.format(
+            topic=state['user_query'],
+            notes=notes,
+            papers=summary_txt
+        )
+    })
+
+    # user asks for an outline
+    report_msgs.append({
+        'role': 'user',
+        'content': outline_prompt
+    })
+    response = completion(
+        model=state['llm'],
+        api_key=state['api_key'],
+        base_url=state['base_url'],
+        messages=report_msgs,
+        stream=False,
+        max_tokens=2048,
+        # stop=["\n\n", "\n", "]"],
+        temperature=1.0,
+        top_p=0.95
+    )
+    response = response['choices'][0]['message']
+    report_outline = response['content']
+    return {
+        "final_report": report_outline,
+    }
 
 class ResearchAgent:
     """
