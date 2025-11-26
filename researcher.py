@@ -30,7 +30,7 @@ class TopicList(BaseModel):
         # format steps
         step_txt = ["Topic " + str(index) + ": " + step for index,step in enumerate(self.topics, start=1)]
         # join and return
-        return "\n\n".join(step_txt)
+        return "\n".join(step_txt)
 
 # ------------------------- Agent State -----------------------
 
@@ -86,7 +86,7 @@ def start_research(state: ResearchState):
 
     # initial prompt to start the research process
     initial_query_prompt = (
-        "Here is your thesis advisor's request:\n "
+        "Here is your thesis advisor's request:\n"
         "{research_topic}\n\n "
         "Before starting, please formulate a concise, high-level outline of the topics you will need to cover "
         "in your literature review. Outline only the topics themselves in JSON format. No extra commentary."
@@ -120,15 +120,26 @@ def start_research(state: ResearchState):
     plan = TopicList.model_validate_json(ai_msg['content'])
     formatted_plan = plan.format_readable()
     print("Initial list of topics to research:\n\n" + formatted_plan)
-    # add the topic list to the list of messages
-    planning_messages.append({
-        'role': 'assistant',
-        'content': formatted_plan
-    })
+
+    # create the list of messages that will be used for downstream steps
+    output_messages = [
+        {
+            'role': 'system',
+            'content': main_research_prompt
+        },
+        {
+            'role': 'user',
+            'content': "Here is your thesis advisor's request:\n" + state["user_query"]
+        },
+        {
+            'role': 'assistant',
+            'content': "To cover all aspects of this request, I need to research the following topics:\n\n" + formatted_plan
+        }
+    ]
     return {
         "n_search_rounds": state["n_search_rounds"] + 1,
         "researcher_notes": [formatted_plan],
-        "messages": planning_messages,
+        "messages": output_messages,
         "mode": "search",
     }
 
