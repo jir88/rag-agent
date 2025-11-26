@@ -116,7 +116,6 @@ def start_research(state: ResearchState):
     )
     
     ai_msg = response['choices'][0]['message']
-    print("Raw text:" + ai_msg['content'])
     plan = TopicList.model_validate_json(ai_msg['content'])
     formatted_plan = plan.format_readable()
     print("Initial list of topics to research:\n\n" + formatted_plan)
@@ -258,7 +257,6 @@ def search_and_summarize(state: ResearchState):
             # LLM with updated info on failed search
             'messages': messages
         }
-    print(pubmed_results)
 
     # record IDs of new articles so we can discuss them
     current_result_ids = []
