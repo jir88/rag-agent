@@ -359,10 +359,10 @@ def check_research_progress(state: ResearchState):
     )
     prompt_next_step = (
         "Based on your progress thus far, are there more topics you need to research? "
-        "Are there gaps in your literature coverage that you need to fill? If you need "
-        " to keep searching the literature, respond with ##YES##. If you have completely "
-        "covered all research topics and do not need to do any more searches, respond with "
-        "##NO##. If any of your research topics require any more information, respond with ##YES##."
+        "Are there gaps in your literature coverage that you need to fill? Briefly summarize your reasoning. "
+        "If you need to keep searching the literature, end your respose with ##YES##. If you have completely "
+        "covered all research topics and do not need to do any more searches, end your response with "
+        "##NO##. If any of your research topics require any more information, end your response with ##YES##."
     )
     # get the researcher notes
     researcher_notes = state['researcher_notes']
