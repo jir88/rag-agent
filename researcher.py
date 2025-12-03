@@ -122,18 +122,16 @@ def start_research(state: ResearchState):
     print("Initial list of topics to research:\n\n" + formatted_plan)
 
     # create the list of messages that will be used for downstream steps
+    # combine the basic system prompt with the query and initial plan
+    system_prompt = (
+        main_research_prompt + 
+        "\n\nHere is your thesis advisor's request:\n" + state["user_query"] +
+        "To cover all aspects of this request, you plan to research the following topics:\n\n" + formatted_plan
+    )
     output_messages = [
         {
             'role': 'system',
-            'content': main_research_prompt
-        },
-        {
-            'role': 'user',
-            'content': "Here is your thesis advisor's request:\n" + state["user_query"]
-        },
-        {
-            'role': 'assistant',
-            'content': "To cover all aspects of this request, I need to research the following topics:\n\n" + formatted_plan
+            'content': system_prompt
         }
     ]
     return {
