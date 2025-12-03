@@ -126,7 +126,7 @@ def start_research(state: ResearchState):
     system_prompt = (
         main_research_prompt + 
         "\n\nHere is your thesis advisor's request:\n" + state["user_query"] +
-        "To cover all aspects of this request, you plan to research the following topics:\n\n" + formatted_plan
+        "\n\nTo cover all aspects of this request, you plan to research the following topics:\n" + formatted_plan
     )
     output_messages = [
         {
