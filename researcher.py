@@ -221,10 +221,10 @@ def search_and_summarize(state: ResearchState):
         "Abstract: {abstract}"
     )
     article_relevance_prompt = (
-        "Is this article relevant? If it is relevant, write ##YES##. Then, in a single sentence, "
-        "explain how this article is relevant to your literature review topic. If you think it is "
-        "irrelevant, write ##NO##. Then explain why the article is irrelevant to your literature "
-        "review. Be skeptical."
+        "Is this article relevant? In a single sentence, briefly explain why this article is "
+        "relevant or irrelevant to your literature review topic. Be skeptical. Finally, if the article is "
+        "relevant, write ##YES##. If it is irrelevant, write ##NO##. Be sure to end your response "
+        "with either ##YES## or ##NO##."
     )
     # get the search string
     current_query = state['current_pubmed_query']
