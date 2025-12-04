@@ -346,8 +346,7 @@ def check_research_progress(state: ResearchState):
     # article summary format
     article_format = (
         "[PMID {pubmed_id}] *{title}*\n"
-        "**Summary:** {summary}\n"
-        "**Relevance:** {relevance}\n\n"
+        "**Summary:** {summary}\n\n"
     )
     prompt_review_status = (
         "Please summarize the over-all status of your literature review thus far. Update your topic "
@@ -385,8 +384,7 @@ def check_research_progress(state: ResearchState):
             summary_txt += article_format.format(
                 pubmed_id = article['pubmed_id'],
                 title = article['title'],
-                summary = article['summary'],
-                relevance = article['relevance']
+                summary = article['summary']
             )
         else:
             print("Irrelevant article: " + article['relevance'])
