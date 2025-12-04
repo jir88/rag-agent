@@ -349,10 +349,6 @@ def check_research_progress(state: ResearchState):
         "**Summary:** {summary}\n"
         "**Relevance:** {relevance}\n\n"
     )
-    prompt_search_result_summary = (
-        "In a few sentences, please summarize any relevant information retrieved from your search results. "
-        "Cite information using the source's PubMed ID surrounded by square brackets. Ignore any irrelevant information."
-    )
     prompt_review_status = (
         "Please summarize the over-all status of your literature review thus far. Update your topic "
         "outline and indicate which topics require more information."
@@ -364,21 +360,13 @@ def check_research_progress(state: ResearchState):
         "covered all research topics and do not need to do any more searches, end your response with "
         "##NO##. If any of your research topics require any more information, end your response with ##YES##."
     )
-    # get the researcher notes
-    researcher_notes = state['researcher_notes']
-    # if there aren't any, start a list
-    if researcher_notes is None:
-        researcher_notes = []
-        # if no results, skip to another search
+    # if no results, skip to another search
     if len(state['current_result_ids']) == 0:
-        researcher_notes.append("My search returned no results.")
         return {
             'mode': "search",
-            'researcher_notes': researcher_notes
         }
-    # get the LLM
-    # ask for status of research first
     # we need to decide what to do next
+    # ask for status of research first
     # we'll keep this off the main LLM chat
     status_check_msgs = []
     status_check_msgs.extend(state['messages'])
@@ -405,28 +393,6 @@ def check_research_progress(state: ResearchState):
     status_check_msgs.append({
         'role': 'assistant',
         'content': summary_txt
-    })
-    # summarize the latest round of search results
-    status_check_msgs.append({
-        'role': 'user',
-        'content': prompt_search_result_summary
-    })
-    response = completion(
-        model=state['llm'],
-        api_key=state['api_key'],
-        base_url=state['base_url'],
-        messages=status_check_msgs,
-        stream=False,
-        max_tokens=2048,
-        # stop=["\n\n", "\n", "]"],
-        temperature=1.0,
-        top_p=0.95
-    )
-    response = response['choices'][0]['message']
-    result_summary = response['content']
-    status_check_msgs.append({
-        'role': 'assistant',
-        'content': result_summary
     })
     
     # summarize over-all progress and update goals as needed
@@ -481,28 +447,17 @@ def check_research_progress(state: ResearchState):
     messages = state['messages']
     messages.append({
         'role': 'user',
-        'content': prompt_search_result_summary
-    })
-    messages.append({
-        'role': 'assistant',
-        'content': result_summary
-    })
-    messages.append({
-        'role': 'user',
         'content': prompt_review_status
     })
     messages.append({
         'role': 'assistant',
         'content': progress_summary
     })
-    # add result summary to running list of notes
-    researcher_notes.append(result_summary)
     # return results
     return {
         'messages': messages,
         'n_search_rounds': state['n_search_rounds'] + 1,
         'mode': mode,
-        'researcher_notes': researcher_notes
     }
 
 def route_researcher(state: ResearchState) -> str:
