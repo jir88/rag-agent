@@ -18,9 +18,9 @@ if __name__ == "__main__":
     )
 
     query = (
-        "Summarize recent research on bile acid metabolism. Perform several initial searches with general keywords "
-        "before focusing on particular areas of active research with follow-up queries. Look for both host and "
-        "microbiome interactions with bile acids and the effects of these interactions on disease."
+        "Summarize recent research on bile acid metabolism, focusing on particular areas of active research. "
+        "Begin with a general introduction to bile acid metabolism. "
+        "Look for both host and microbiome interactions with bile acids and the effects of these interactions on disease."
     )
     result = agent.submit_question(question=query)
     with open("output_research_state.json", mode='w') as fp:
