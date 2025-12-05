@@ -352,12 +352,17 @@ def check_research_progress(state: ResearchState):
         "Please summarize the over-all status of your literature review thus far. Update your topic "
         "outline and indicate which topics require more information."
     )
-    prompt_next_step = (
+    prompt_research_gaps = (
         "Based on your progress thus far, are there more topics you need to research? "
-        "Are there gaps in your literature coverage that you need to fill? Briefly summarize your reasoning. "
-        "If you need to keep searching the literature, end your respose with ##YES##. If you have completely "
-        "covered all research topics and do not need to do any more searches, end your response with "
-        "##NO##. If any of your research topics require any more information, end your response with ##YES##."
+        "Are there any gaps remaining in your literature coverage that you need to fill in? "
+        "If you have completely covered all research topics and do not need any more searches, say so. "
+        "Briefly summarize your reasoning. Describe any gaps or topics needing additional coverage."
+    )
+    prompt_next_step = (
+        "Based on your progress thus far, do you need to keep searching the literature? "
+        "If you need to keep searching the literature, respond with ##YES##. If you have completely "
+        "covered all research topics and do not need to do any more searches, respond with "
+        "##NO##. If any of your research topics require any more information, respond with ##YES##."
     )
     # if no results, skip to another search
     if len(state['current_result_ids']) == 0:
@@ -415,6 +420,28 @@ def check_research_progress(state: ResearchState):
         'role': 'assistant',
         'content': progress_summary
     })
+    # ask LLM to discuss its research progress, looking for gaps
+    status_check_msgs.append({
+        'role': 'user',
+        'content': prompt_research_gaps
+    })
+    response = completion(
+        model=state['llm'],
+        api_key=state['api_key'],
+        base_url=state['base_url'],
+        messages=status_check_msgs,
+        stream=False,
+        max_tokens=256,
+        # stop=["\n\n", "\n", "]"],
+        temperature=1.0,
+        top_p=0.95
+    )
+    response = response['choices'][0]['message']
+    research_gaps = response['content']
+    status_check_msgs.append({
+        'role': 'assistant',
+        'content': research_gaps
+    })
     # ask LLM to select next step, returning either 'YES' or 'NO' for whether more research is needed
     status_check_msgs.append({
         'role': 'user',
@@ -450,6 +477,14 @@ def check_research_progress(state: ResearchState):
     messages.append({
         'role': 'assistant',
         'content': progress_summary
+    })
+    messages.append({
+        'role': 'user',
+        'content': prompt_research_gaps
+    })
+    messages.append({
+        'role': 'assistant',
+        'content': research_gaps
     })
     # return results
     return {
