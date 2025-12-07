@@ -23,6 +23,15 @@ if __name__ == "__main__":
         "Look for both host and microbiome interactions with bile acids and the effects of these interactions on disease."
     )
     result = agent.submit_question(question=query)
-    with open("output_research_state.json", mode='w') as fp:
+
+    # put timestamp on outputs
+    import datetime
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    # save whole result dict
+    with open("results/output_research_state_" + timestamp + ".json", mode='w') as fp:
         json.dump(result, fp=fp, indent=2)
+    # we can convert the article values straight into a DataFrame and write it to CSV for evals
+    import pandas as pd
+    df = pd.DataFrame(result['articles'].values())
+    df.to_csv("results/article_data_" + timestamp + ".csv")
     print(json.dumps(result, indent=2))
