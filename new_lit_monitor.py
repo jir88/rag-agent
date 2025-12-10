@@ -34,6 +34,8 @@ class LitMonitorState(TypedDict):
     base_url: Optional[str] = None
     topic_description: str
     """A description of the topic the user is interested in."""
+    search_terms: str
+    """The PubMed search terms being monitored."""
     prior_pmids: List[str] = []
     """A list of the PMIDs we have seen before."""
     article_evaluations: Annotated[List[Dict[str, Any]], operator.add]
@@ -45,12 +47,30 @@ class LitMonitorState(TypedDict):
     num_pubmed_results: int = 10
     """The maximum number of search results per page."""
 
-def do_search(state: LitMonitorState):
+def do_search(state: LitMonitorState) -> List[Send]:
     """
     Do the initial PubMed search.
     """
-    result_list = [1, 2, 3]
-    return [Send(node="eval_paper", arg={'pmid': id}) for id in result_list]
+    # get the search string
+    current_query = state['search_terms']
+    # get query page
+    query_page = state['n_search_rounds']
+    # ask for the next 'page' of results
+    start_results = state['num_pubmed_results']*query_page
+    # run the actual search
+    search_tool = PubmedSearchTool()
+    pubmed_results = search_tool.search_pubmed(
+        query=current_query, 
+        start_results=start_results,
+        max_results=state['num_pubmed_results'],
+        sort='pub_date')
+
+    # get any new articles
+    new_results = [res for res in pubmed_results if res['pmid'] not in state['prior_pmids']]
+    # TODO: how to handle routing?
+    if len(new_results) == 0:
+        pass
+    return [Send(node="eval_paper", arg={'article': res}) for res in new_results]
 
 def eval_paper(state):
     """
@@ -88,13 +108,14 @@ class LitMonitor:
         # build the agent graph
         self._initialize_agent_graph()
     
-    def check_search(self, query: str):
+    def check_search(self, topic_description:str, search_terms:str):
         # build agent state
         state = {
             'llm': self.llm,
             'api_key': self.api_key,
             'base_url': self.base_url,
-            'topic_description': query,
+            'topic_description': topic_description,
+            'search_terms': search_terms,
             'prior_pmids': [],
             'article_evaluations': [],
             'n_search_rounds': 0,
@@ -147,10 +168,11 @@ if __name__ == "__main__":
         base_url=base_url
     )
 
-    query = (
+    topic_description = (
         "Summarize recent research on bile acid metabolism, focusing on particular areas of active research. "
         "Begin with a general introduction to bile acid metabolism. "
         "Look for both host and microbiome interactions with bile acids and the effects of these interactions on disease."
     )
-    result = agent.check_search(query=query)
+    search_terms = "bile acid metabolism"
+    result = agent.check_search(topic_description=topic_description, search_terms=search_terms)
     print(json.dumps(result, indent=2))
