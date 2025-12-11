@@ -90,10 +90,67 @@ def eval_paper(state):
     """
     Evaluate the relevance of a single new paper.
     """
-    pmid = state['pmid']
+    system_prompt = (
+        "You are a university professor. You are checking PubMed for any new publications relevant to "
+        "your research. You don't have much time, so you focus on finding the most relevant papers to "
+        "download and read. Your research topic is:\n\n"
+        "{topic}"
+    )
+    article_relevance_prompt = (
+        "Please decide whether the following article is relevant to your research topic.\n\n"
+        "Title: {title}\n"
+        "Publication date: {date}\n"
+        "Abstract: {abstract}\n\n"
+        "Is this article relevant? In a single sentence, briefly explain why this article is "
+        "relevant or irrelevant to your research topic. Be skeptical. Finally, if the article is "
+        "relevant, write ##YES##. If it is irrelevant, write ##NO##. Be sure to end your response "
+        "with either ##YES## or ##NO##."
+    )
+
+    article = state['article']
+
+    # make conversation
+    relevance_msgs = [
+        {
+            'role': 'system',
+            'content': system_prompt.format(
+                topic=state['topic_description']
+            )
+        },
+        {
+            'role': 'user',
+            'content': article_relevance_prompt.format(
+                title=article['title'],
+                date=article['date'],
+                abstract=article['abstract']
+            )
+        }
+    ]
+    response = completion(
+        model=state['llm'],
+        api_key=state['api_key'],
+        base_url=state['base_url'],
+        messages=relevance_msgs,
+        stream=False,
+        max_tokens=512,
+        # stop=["\n\n", "\n", "]"],
+        temperature=1.0,
+        top_p=0.95
+    )
+    rel_response = response['choices'][0]['message']
+    # determine if LLM flags as relevant or not
+    if "YES" in rel_response['content']:
+        is_relevant = True
+    elif "NO" in rel_response['content']:
+        is_relevant = False
+    else:
+        raise ValueError("LLM response did not contain NO or YES!")
+    
     article_evaluation = {
-        'pmid': pmid,
-        'evaluation': "Paper " + str(pmid) + " is irrelevant! >:(",
+        'pmid': article['pubmed_id'],
+        'title': article['title'],
+        'evaluation': rel_response['content'],
+        'is_relevant': is_relevant
     }
     # return evaluation wrapped in list so it can be appended correctly
     return {
