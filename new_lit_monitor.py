@@ -66,11 +66,25 @@ def do_search(state: LitMonitorState) -> List[Send]:
         sort='pub_date')
 
     # get any new articles
-    new_results = [res for res in pubmed_results if res['pmid'] not in state['prior_pmids']]
+    new_results = [res for res in pubmed_results if res['pubmed_id'] not in state['prior_pmids']]
     # TODO: how to handle routing?
     if len(new_results) == 0:
         pass
-    return [Send(node="eval_paper", arg={'article': res}) for res in new_results]
+    
+    # send each paper separately to the eval_paper node
+    outputs = []
+    for res in new_results:
+        res_state = {
+            'llm': state['llm'],
+            'api_key': state['api_key'],
+            'base_url': state['base_url'],
+            'topic_description': state['topic_description'],
+            'article': res,
+        }
+        outputs.append(
+            Send(node="eval_paper", arg=res_state)
+        )
+    return outputs
 
 def eval_paper(state):
     """
