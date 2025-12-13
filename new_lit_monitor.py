@@ -1,10 +1,9 @@
 import json
 
-from typing import TypedDict, List, Dict, Any, Optional, Annotated, Literal
+from typing import TypedDict, List, Dict, Any, Optional, Literal
 from litellm import completion
 from langgraph.graph import StateGraph, START, END
 from langgraph.types import Command
-import operator
 
 from tools import PubmedSearchTool
 
@@ -39,8 +38,6 @@ class LitMonitorState(TypedDict):
     """A list of the PMIDs we have seen before."""
     new_articles: List[Dict[str, Any]] = []
     """A list of dicts containing each new article we have found."""
-    article_evaluations: Annotated[List[Dict[str, Any]], operator.add] = []
-    """A list of dicts containing our evaluation of each new paper."""
     num_pubmed_results: int = 25
     """The maximum number of search results to evaluate."""
 
