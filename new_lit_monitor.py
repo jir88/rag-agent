@@ -227,8 +227,6 @@ class LitMonitor:
 if __name__ == "__main__":
     # create the agent itself
     # model="huggingface/Qwen/Qwen2.5-Coder-32B-Instruct"
-    # api_key=None
-    # base_url=None
     # model="openai/gemma-3n-E4B-it-UD-Q5_K_XL-cpu"
     model="openai/granite-4.0-h-tiny-UD-Q5_K_XL-cpu"
     # model="openai/gemma-3-4B-it-UD-Q4_K_XL-cpu"
@@ -252,4 +250,15 @@ if __name__ == "__main__":
         search_terms=search_terms,
         max_results=5
     )
+
+    # put timestamp on outputs
+    import datetime
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    # save whole result dict
+    with open("results/output_monitor_state_" + timestamp + ".json", mode='w') as fp:
+        json.dump(result, fp=fp, indent=2)
+    # we can convert the article values straight into a DataFrame and write it to CSV for evals
+    import pandas as pd
+    df = pd.DataFrame(result['new_articles'])
+    df.to_csv("results/monitor_article_data_" + timestamp + ".csv")
     print(json.dumps(result, indent=2))
