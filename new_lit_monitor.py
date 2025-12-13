@@ -3,7 +3,7 @@ import json
 from typing import TypedDict, List, Dict, Any, Optional, Annotated, Literal
 from litellm import completion
 from langgraph.graph import StateGraph, START, END
-from langgraph.types import Send, Command
+from langgraph.types import Command
 import operator
 
 from tools import PubmedSearchTool
@@ -37,30 +37,24 @@ class LitMonitorState(TypedDict):
     """The PubMed search terms being monitored."""
     prior_pmids: List[str] = []
     """A list of the PMIDs we have seen before."""
-    article_evaluations: Annotated[List[Dict[str, Any]], operator.add]
-    """A list of dicts containing the metadata about each paper and our evaluation of it."""
-    n_search_rounds: int = 0
-    """The number of search result pages we've looked at thus far."""
-    max_search_rounds: int = 3
-    """The maximum number of pages we can look at before stopping."""
-    num_pubmed_results: int = 10
-    """The maximum number of search results per page."""
+    new_articles: List[Dict[str, Any]] = []
+    """A list of dicts containing each new article we have found."""
+    article_evaluations: Annotated[List[Dict[str, Any]], operator.add] = []
+    """A list of dicts containing our evaluation of each new paper."""
+    num_pubmed_results: int = 25
+    """The maximum number of search results to evaluate."""
 
-def do_search(state: LitMonitorState) -> List[Send]:
+def do_search(state: LitMonitorState) -> Command[Literal["eval_all_papers", "collate_evals"]]:
     """
-    Do the initial PubMed search.
+    Do the PubMed search and grab metadata for any articles we haven't seen before.
     """
     # get the search string
     current_query = state['search_terms']
-    # get query page
-    query_page = state['n_search_rounds']
-    # ask for the next 'page' of results
-    start_results = state['num_pubmed_results']*query_page
     # run the actual search
     search_tool = PubmedSearchTool()
     pubmed_results = search_tool.search_pubmed(
         query=current_query, 
-        start_results=start_results,
+        start_results=0,
         max_results=state['num_pubmed_results'],
         sort='pub_date')
 
@@ -68,26 +62,22 @@ def do_search(state: LitMonitorState) -> List[Send]:
     new_results = [res for res in pubmed_results if res['pubmed_id'] not in state['prior_pmids']]
     # TODO: how to handle routing?
     if len(new_results) == 0:
-        pass
-    
-    # send each paper separately to the eval_paper node
-    outputs = []
-    for res in new_results:
-        res_state = {
-            'llm': state['llm'],
-            'api_key': state['api_key'],
-            'base_url': state['base_url'],
-            'topic_description': state['topic_description'],
-            'article': res,
-        }
-        outputs.append(
-            Send(node="eval_paper", arg=res_state)
+        return Command(
+            update={
+                'new_articles': []
+            },
+            goto="collate_evals"
         )
-    return outputs
+    return Command(
+        update={
+            'new_articles': new_results
+        },
+        goto="eval_all_papers"
+    )
 
-def eval_paper(state):
+def eval_all_papers(state:LitMonitorState) -> LitMonitorState:
     """
-    Evaluate the relevance of a single new paper.
+    Evaluate all the new papers for relevance.
     """
     system_prompt = (
         "You are a university professor. You are checking PubMed for any new publications relevant to "
@@ -106,55 +96,70 @@ def eval_paper(state):
         "with either ##YES## or ##NO##."
     )
 
-    article = state['article']
+    new_articles = state['new_articles']
+    for article in new_articles:
+        # make conversation
+        relevance_msgs = [
+            {
+                'role': 'system',
+                'content': system_prompt.format(
+                    topic=state['topic_description']
+                )
+            },
+            {
+                'role': 'user',
+                'content': article_relevance_prompt.format(
+                    title=article['title'],
+                    date=article['date'],
+                    abstract=article['abstract']
+                )
+            }
+        ]
+        # try a couple times in case LLM doesn't do it right
+        attempts = 0
+        max_attempts = 3
+        is_relevant = None
 
-    # make conversation
-    relevance_msgs = [
-        {
-            'role': 'system',
-            'content': system_prompt.format(
-                topic=state['topic_description']
+        while attempts < max_attempts:
+            response = completion(
+                model=state['llm'],
+                api_key=state['api_key'],
+                base_url=state['base_url'],
+                messages=relevance_msgs,
+                stream=False,
+                max_tokens=512,
+                # stop=["\n\n", "\n", "]"],
+                temperature=1.0,
+                top_p=0.95
             )
-        },
-        {
-            'role': 'user',
-            'content': article_relevance_prompt.format(
-                title=article['title'],
-                date=article['date'],
-                abstract=article['abstract']
-            )
-        }
-    ]
-    response = completion(
-        model=state['llm'],
-        api_key=state['api_key'],
-        base_url=state['base_url'],
-        messages=relevance_msgs,
-        stream=False,
-        max_tokens=512,
-        # stop=["\n\n", "\n", "]"],
-        temperature=1.0,
-        top_p=0.95
-    )
-    rel_response = response['choices'][0]['message']
-    # determine if LLM flags as relevant or not
-    if "YES" in rel_response['content']:
-        is_relevant = True
-    elif "NO" in rel_response['content']:
-        is_relevant = False
-    else:
-        raise ValueError("LLM response did not contain NO or YES!")
+            rel_response = response['choices'][0]['message']
+            print(rel_response['content'])
+            # determine if LLM flags as relevant or not
+            if "YES" in rel_response['content']:
+                is_relevant = True
+                attempts = max_attempts # end loop
+            elif "NO" in rel_response['content']:
+                is_relevant = False
+                attempts = max_attempts # end loop
+            else:
+                print("LLM response did not contain NO or YES! Retrying...")
+                attempts += 1
+
+        # record evaluation, relevance flag will be None if we failed
+        article['evaluation'] = rel_response['content']
+        article['is_relevant'] = is_relevant
     
-    article_evaluation = {
-        'pmid': article['pubmed_id'],
-        'title': article['title'],
-        'evaluation': rel_response['content'],
-        'is_relevant': is_relevant
-    }
-    # return evaluation wrapped in list so it can be appended correctly
+    # update state with article list, now with relevance added
     return {
-        "article_evaluations": [article_evaluation],
+        'new_articles': new_articles
     }
+
+def collate_evals(state:LitMonitorState) -> dict:
+    print(str(state))
+    return {}
+
+def save_results(state:LitMonitorState):
+    return {}
 
 class LitMonitor:
     """
@@ -178,7 +183,7 @@ class LitMonitor:
         # build the agent graph
         self._initialize_agent_graph()
     
-    def check_search(self, topic_description:str, search_terms:str):
+    def check_search(self, topic_description:str, search_terms:str, max_results:int=25):
         # build agent state
         state = {
             'llm': self.llm,
@@ -188,9 +193,7 @@ class LitMonitor:
             'search_terms': search_terms,
             'prior_pmids': [],
             'article_evaluations': [],
-            'n_search_rounds': 0,
-            'max_search_rounds': 3,
-            'num_pubmed_results': 10
+            'num_pubmed_results': max_results
         }
         with tracer.start_as_current_span("Invoke ResearchAgent") as session_span:
             final_result = self.agent_graph.invoke(
@@ -209,14 +212,17 @@ class LitMonitor:
         self.agent_graph = StateGraph(LitMonitorState)
 
         # define nodes
-        self.agent_graph.add_node("eval_paper", eval_paper)
+        self.agent_graph.add_node("do_search", do_search)
+        self.agent_graph.add_node("eval_all_papers", eval_all_papers)
+        self.agent_graph.add_node("collate_evals", collate_evals)
+        self.agent_graph.add_node("save_results", save_results)
         
         # define edges
-        self.agent_graph.add_conditional_edges(
-            source=START,
-            path=do_search
-        )
-        self.agent_graph.add_edge("eval_paper", END)
+        self.agent_graph.add_edge(START, "do_search")
+        # self.agent_graph.add_edge("do_search", "eval_all_papers")
+        self.agent_graph.add_edge("eval_all_papers", "collate_evals")
+        self.agent_graph.add_edge("collate_evals", "save_results")
+        self.agent_graph.add_edge("save_results", END)
         
         # compile graph
         self.agent_graph = self.agent_graph.compile()
@@ -244,5 +250,9 @@ if __name__ == "__main__":
         "Look for both host and microbiome interactions with bile acids and the effects of these interactions on disease."
     )
     search_terms = "bile acid metabolism"
-    result = agent.check_search(topic_description=topic_description, search_terms=search_terms)
+    result = agent.check_search(
+        topic_description=topic_description, 
+        search_terms=search_terms,
+        max_results=5
+    )
     print(json.dumps(result, indent=2))
