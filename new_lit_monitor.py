@@ -180,7 +180,24 @@ class LitMonitor:
         # build the agent graph
         self._initialize_agent_graph()
     
-    def check_search(self, topic_description:str, search_terms:str, max_results:int=25):
+    def check_search(
+        self, topic_description:str, search_terms:str, max_results:int=25,
+        prior_pmids:List[str] = []
+        ):
+        """
+        Run the monitor agent for a given topic and search term.
+
+        Args:
+            topic_description (str): Description of the research topic to help the agent 
+                decide whether articles are relevant.
+            search_terms (str): The search to use in PubMed search syntax.
+            max_results (int): The maximum number of search results to evaluate.
+            prior_pmids (List[str]): Optional list of PMIDs we've seen before, 
+                to avoid checking the same articles repeatedly.
+        
+        Returns:
+            The results of the agent run in a dict.
+        """
         # build agent state
         state = {
             'llm': self.llm,
@@ -188,7 +205,7 @@ class LitMonitor:
             'base_url': self.base_url,
             'topic_description': topic_description,
             'search_terms': search_terms,
-            'prior_pmids': [],
+            'prior_pmids': prior_pmids,
             'article_evaluations': [],
             'num_pubmed_results': max_results
         }
