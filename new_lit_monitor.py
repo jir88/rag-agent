@@ -1,5 +1,9 @@
 import json
+import sys
+import datetime
+import pandas as pd
 
+from pathlib import Path
 from typing import TypedDict, List, Dict, Any, Optional, Literal
 from litellm import completion
 from langgraph.graph import StateGraph, START, END
@@ -241,8 +245,31 @@ class LitMonitor:
         # compile graph
         self.agent_graph = self.agent_graph.compile()
 
-if __name__ == "__main__":
-    # create the agent itself
+def main():
+    """
+    The main method for running the literature monitor from the command line.
+    Takes one unnamed argument, the name of the topic file to use.
+    """
+    # make sure we have at least one argument
+    if len(sys.argv) < 2:
+        print("Usage: python new_lit_monitor.py <topic_file.csv>")
+        sys.exit(1)
+
+    # try loading the topic file
+    input_path = Path(sys.argv[1])
+
+    if not input_path.exists():
+        print(f"Error: Topic file not found: {input_path}")
+        sys.exit(1)
+
+    # Read the topic file
+    try:
+        topic_data = pd.read_csv(input_path)
+    except Exception as e:
+        print(f"Error reading topic file: {e}")
+        sys.exit(1)
+
+    # TODO: set up the monitor agent
     # model="huggingface/Qwen/Qwen2.5-Coder-32B-Instruct"
     # model="openai/gemma-3n-E4B-it-UD-Q5_K_XL-cpu"
     model="openai/granite-4.0-h-tiny-UD-Q5_K_XL-cpu"
@@ -256,26 +283,30 @@ if __name__ == "__main__":
         base_url=base_url
     )
 
-    topic_description = (
-        "Summarize recent research on bile acid metabolism, focusing on particular areas of active research. "
-        "Begin with a general introduction to bile acid metabolism. "
-        "Look for both host and microbiome interactions with bile acids and the effects of these interactions on disease."
-    )
-    search_terms = "bile acid metabolism"
-    result = agent.check_search(
-        topic_description=topic_description, 
-        search_terms=search_terms,
-        max_results=5
-    )
+    # run agent on each query/search term pair in the configuration file
+    for row in topic_data.itertuples():
+        # TODO: Have the agent invoke the monitor for each topic
+        print(f"Running agent with query:\n\n{row.query}\n\nSearch term:{row.search_term}\n\n")
+        result = agent.check_search(
+            topic_description=row.query, 
+            search_terms=row.search_term,
+            max_results=25
+        )
 
-    # put timestamp on outputs
-    import datetime
-    timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    # save whole result dict
-    with open("results/output_monitor_state_" + timestamp + ".json", mode='w') as fp:
-        json.dump(result, fp=fp, indent=2)
-    # we can convert the article values straight into a DataFrame and write it to CSV for evals
-    import pandas as pd
-    df = pd.DataFrame(result['new_articles'])
-    df.to_csv("results/monitor_article_data_" + timestamp + ".csv")
-    print(json.dumps(result, indent=2))
+        # put timestamp on outputs
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        # save whole result dict
+        with open("results/output_monitor_state_" + timestamp + ".json", mode='w') as fp:
+            json.dump(result, fp=fp, indent=2)
+        # we can convert the article values straight into a DataFrame and write it to CSV for evals
+        new_articles = result['new_articles']
+        df = pd.DataFrame(new_articles)
+        # add LLM metadata
+        df['model'] = model
+        df['base_url'] = base_url
+        df.to_csv("results/monitor_article_data_" + timestamp + ".csv")
+        print(json.dumps(result, indent=2))
+
+
+if __name__ == "__main__":
+    main()
