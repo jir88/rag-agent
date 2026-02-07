@@ -34,6 +34,8 @@ class LitMonitorState(TypedDict):
     api_key: Optional[str] = None
     # optional URL where inference client is located
     base_url: Optional[str] = None
+    sampling_params: Dict[str, Any]
+    """OpenAI-style dict of sampling parameters for the LLM."""
     topic_description: str
     """A description of the topic the user is interested in."""
     search_terms: str
@@ -129,9 +131,7 @@ def eval_all_papers(state:LitMonitorState) -> LitMonitorState:
                 messages=relevance_msgs,
                 stream=False,
                 max_tokens=512,
-                # stop=["\n\n", "\n", "]"],
-                temperature=1.0,
-                top_p=0.95
+                extra_headers=state['sampling_params']
             )
             rel_response = response['choices'][0]['message']
             print(rel_response['content'])
@@ -168,7 +168,7 @@ class LitMonitor:
     whether they are relevant to the user's interests.
     """
 
-    def __init__(self, llm:str, api_key:str = None, base_url:str = None):
+    def __init__(self, llm:str, api_key:str = None, base_url:str = None, sampling_params:dict = None):
         """
         Create a new monitor workflow with a back-end LLM.
 
@@ -176,10 +176,19 @@ class LitMonitor:
             llm (str): LiteLLM identifier of the model to use for LLM inference
             api_key (str): Optional API key if the LLM service requires it
             base_url (str): Optional custom URL where LLM service is located
+            sampling_params (dict): OpenAI styled dict of sampling parameters to use with the LLM
         """
         self.llm = llm
         self.api_key = api_key
         self.base_url = base_url
+        self.sampling_params = sampling_params
+
+        # default parameters if none provided
+        if self.sampling_params is None:
+            self.sampling_params = {
+                "temperature": 1.0,
+                "top_p": 0.95
+            }
 
         # build the agent graph
         self._initialize_agent_graph()
@@ -207,6 +216,7 @@ class LitMonitor:
             'llm': self.llm,
             'api_key': self.api_key,
             'base_url': self.base_url,
+            'sampling_params': self.sampling_params,
             'topic_description': topic_description,
             'search_terms': search_terms,
             'prior_pmids': prior_pmids,

@@ -22,7 +22,7 @@ class EvalLitMonitor:
     a fixed set of articles that have been hand-evaluated for relevance to the associated topic.
     """
 
-    def __init__(self, llm:str, api_key:str = None, base_url:str = None):
+    def __init__(self, llm:str, api_key:str = None, base_url:str = None, sampling_params:dict = None):
         """
         Create a new monitor workflow with a back-end LLM.
 
@@ -30,10 +30,19 @@ class EvalLitMonitor:
             llm (str): LiteLLM identifier of the model to use for LLM inference
             api_key (str): Optional API key if the LLM service requires it
             base_url (str): Optional custom URL where LLM service is located
+            sampling_params (dict): OpenAI styled dict of sampling parameters to use with the LLM
         """
         self.llm = llm
         self.api_key = api_key
         self.base_url = base_url
+        self.sampling_params = sampling_params
+
+        # default parameters if none provided
+        if self.sampling_params is None:
+            self.sampling_params = {
+                "temperature": "1.0",
+                "top_p": "0.95"
+            }
 
         # build the agent graph
         self._initialize_agent_graph()
@@ -66,6 +75,7 @@ class EvalLitMonitor:
             'llm': self.llm,
             'api_key': self.api_key,
             'base_url': self.base_url,
+            'sampling_params': self.sampling_params,
             'topic_description': topic_description,
             'search_terms': "",
             'article_evaluations': [],
