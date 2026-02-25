@@ -36,8 +36,8 @@ async def handle_upload(e: events.UploadEventArguments):
     table_results_data.rows = result_rows
 
     # calculate whole-dataset statistics
-    y_true = eval_results_data['gold_standard'].to_numpy()
-    y_pred = eval_results_data['is_relevant'].to_numpy()
+    y_true = eval_results_data['gold_standard'].to_numpy(dtype=np.bool)
+    y_pred = eval_results_data['is_relevant'].to_numpy(dtype=np.bool)
     cm = confusion_matrix(
         y_true=y_true, y_pred=y_pred,
     )
@@ -45,6 +45,26 @@ async def handle_upload(e: events.UploadEventArguments):
         {'row_label': 'Irrelevant', 'negative': cm[0, 0], 'positive': cm[0, 1]},
         {'row_label': 'Relevant', 'negative': cm[1, 0], 'positive': cm[1, 1]},
     ]
+
+    # calculate accuracy
+    pred_accuracy = np.sum(y_true == y_pred)/len(y_true)
+    label_accuracy.text = f"Accuracy: {pred_accuracy:.1%}"
+    # calculate PPV
+    true_positives = np.sum((y_true == 1) & (y_pred == 1))
+    false_positives = np.sum((y_true == 0) & (y_pred == 1))
+    if (true_positives + false_positives) > 0:
+        ppv = true_positives/(true_positives + false_positives)
+    else:
+        ppv = 0.0
+    label_ppv.text = f"PPV: {ppv:.1%}"
+    # calculate NPV
+    true_negatives = np.sum((y_true == 0) & (y_pred == 0))
+    false_negatives = np.sum((y_true == 1) & (y_pred == 0))
+    if (true_negatives + false_negatives) > 0:
+        npv = true_negatives/(true_negatives + false_negatives)
+    else:
+        npv = 0.0
+    label_npv.text = f"NPV: {npv:.1%}"
 
 # file uploader to select the evaluation results we want to look at
 eval_result_uploader = ui.upload(
@@ -61,17 +81,25 @@ eval_result_uploader.props('accept=.csv')
 eval_results_data = None
 
 # display summary statistics about the results
-columns = [
-    {'name': 'row_label', 'label': 'True relevance', 'field': 'row_label'},
-    {'name': 'negative', 'label': 'Pred. irrelevant', 'field': 'negative'},
-    {'name': 'positive', 'label': 'Pred. relevant', 'field': 'positive'},
-]
-# placeholder data
-rows = [
-    {'row_label': 'Irrelevant', 'positive': 0, 'negative': 0},
-    {'row_label': 'Relevant', 'positive': 0, 'negative': 0},
-]
-table_conf_mat = ui.table(rows=rows, columns=columns, row_key='row_label')
+with ui.row():
+    # confusion matrix
+    columns = [
+        {'name': 'row_label', 'label': 'True relevance', 'field': 'row_label'},
+        {'name': 'negative', 'label': 'Pred. irrelevant', 'field': 'negative'},
+        {'name': 'positive', 'label': 'Pred. relevant', 'field': 'positive'},
+    ]
+    # placeholder data
+    rows = [
+        {'row_label': 'Irrelevant', 'positive': 0, 'negative': 0},
+        {'row_label': 'Relevant', 'positive': 0, 'negative': 0},
+    ]
+    table_conf_mat = ui.table(rows=rows, columns=columns, row_key='row_label')
+
+    # miscellaneous stats
+    with ui.column():
+        label_accuracy = ui.label("Accuracy:")
+        label_ppv = ui.label("PPV:")
+        label_npv = ui.label("NPV:")
 
 # table to put the results in
 columns = [
