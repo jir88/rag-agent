@@ -1,6 +1,5 @@
 from nicegui import ui, events
-from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
-from matplotlib import pyplot as plt
+from sklearn.metrics import confusion_matrix
 
 import numpy as np
 import pandas as pd
