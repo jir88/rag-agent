@@ -8,7 +8,7 @@ import io
 #import eval_new_lit_monitor as em
 
 # toggle to control light/dark theme
-dark = ui.dark_mode()
+dark = ui.dark_mode(value=True)
 ui.switch('Dark mode').bind_value(dark)
 
 async def handle_upload(e: events.UploadEventArguments):
