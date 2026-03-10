@@ -4,7 +4,8 @@ import datetime
 import pandas as pd
 
 from pathlib import Path
-from typing import TypedDict, List, Dict, Any, Optional, Literal
+from pydantic import BaseModel, Field
+from typing import List, Dict, Any, Literal
 from litellm import completion
 from langgraph.graph import StateGraph, START, END
 from langgraph.types import Command
@@ -27,42 +28,46 @@ tracer_provider = register(
 # now that we've set up a provider, grab the actual tracer being used
 tracer = trace.get_tracer(__name__)
 
-class LitMonitorState(TypedDict):
-    llm: str
-    """The LiteLLM path to the inference client we're using to talk to an LLM."""
-    # optional API key for inference client
-    api_key: Optional[str] = None
-    # optional URL where inference client is located
-    base_url: Optional[str] = None
-    sampling_params: Dict[str, Any]
-    """OpenAI-style dict of sampling parameters for the LLM."""
-    topic_description: str
-    """A description of the topic the user is interested in."""
-    search_terms: str
-    """The PubMed search terms being monitored."""
-    prior_pmids: List[str] = []
-    """A list of the PMIDs we have seen before."""
-    new_articles: List[Dict[str, Any]] = []
-    """A list of dicts containing each new article we have found."""
-    num_pubmed_results: int = 25
-    """The maximum number of search results to evaluate."""
+class LitMonitorState(BaseModel):
+    llm: str = Field(description="The LiteLLM path to the inference client we're using to talk to an LLM.")
+    api_key : str = Field(
+        description="Optional API key for inference client.",
+        default="sk-placeholder",
+        exclude=True
+    )
+    base_url: str = Field(description="URL where inference client is located.")
+    sampling_params: Dict[str, Any] = Field(description="OpenAI-style dict of sampling parameters for the LLM.")
+    topic_description: str = Field(description="A description of the topic the user is interested in.")
+    search_terms: str = Field(description="The PubMed search terms being monitored")
+    prior_pmids: List[str] = Field(
+        default=[],
+        description="A list of the PMIDs we have seen before."
+    )
+    new_articles: List[Dict[str, Any]] = Field(
+        default=[],
+        description="A list of dicts containing each new article we have found."
+    )
+    num_pubmed_results: int = Field(
+        default=25,
+        description="The maximum number of search results to evaluate."
+    )
 
 def do_search(state: LitMonitorState) -> Command[Literal["eval_all_papers", "collate_evals"]]:
     """
     Do the PubMed search and grab metadata for any articles we haven't seen before.
     """
     # get the search string
-    current_query = state['search_terms']
+    current_query = state.search_terms
     # run the actual search
     search_tool = PubmedSearchTool()
     pubmed_results = search_tool.search_pubmed(
         query=current_query, 
         start_results=0,
-        max_results=state['num_pubmed_results'],
+        max_results=state.num_pubmed_results,
         sort='pub_date')
 
     # get any new articles
-    new_results = [res for res in pubmed_results if res['pubmed_id'] not in state['prior_pmids']]
+    new_results = [res for res in pubmed_results if res['pubmed_id'] not in state.prior_pmids]
     # TODO: how to handle routing?
     if len(new_results) == 0:
         return Command(
@@ -99,14 +104,14 @@ def eval_all_papers(state:LitMonitorState) -> LitMonitorState:
         "with either ##YES## or ##NO##."
     )
 
-    new_articles = state['new_articles']
+    new_articles = state.new_articles
     for article in new_articles:
         # make conversation
         relevance_msgs = [
             {
                 'role': 'system',
                 'content': system_prompt.format(
-                    topic=state['topic_description']
+                    topic=state.topic_description
                 )
             },
             {
@@ -125,13 +130,13 @@ def eval_all_papers(state:LitMonitorState) -> LitMonitorState:
 
         while attempts < max_attempts:
             response = completion(
-                model=state['llm'],
-                api_key=state['api_key'],
-                base_url=state['base_url'],
+                model=state.llm,
+                api_key=state.api_key,
+                base_url=state.base_url,
                 messages=relevance_msgs,
                 stream=False,
                 max_tokens=512,
-                extra_headers=state['sampling_params']
+                extra_headers=state.sampling_params
             )
             rel_response = response['choices'][0]['message']
             print(rel_response['content'])
@@ -185,9 +190,10 @@ class LitMonitor:
 
         # default parameters if none provided
         if self.sampling_params is None:
+            # values have to be strings
             self.sampling_params = {
-                "temperature": 1.0,
-                "top_p": 0.95
+                "temperature": "1.0",
+                "top_p": "0.95"
             }
 
         # build the agent graph
