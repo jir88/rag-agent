@@ -267,7 +267,7 @@ def parse_args():
     Set up command line argument parsing.
     """
     parser = argparse.ArgumentParser(description="Check the relevance of the most recent papers matching a PubMed search.")
-    parser.add_argument("filename", type=Path, required=True, help="Path to the configuration file to use")
+    parser.add_argument("filename", type=Path, help="Path to the configuration file to use")
     parser.add_argument("-U", "--update", action="store_true",
                         help="Update the previously-run search described in the configuration file.")
     parser.add_argument("-O", "--output", type=Path, action="store", help="Path to the configuration file to use")
