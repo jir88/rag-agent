@@ -1,5 +1,4 @@
 import argparse
-import json
 import sys
 import datetime
 import pandas as pd
@@ -203,7 +202,7 @@ class LitMonitor:
     def check_search(
         self, topic_description:str, search_terms:str, max_results:int=25,
         prior_pmids:List[str] = []
-        ):
+        ) -> LitMonitorState:
         """
         Run the monitor agent for a given topic and search term.
 
@@ -235,9 +234,10 @@ class LitMonitor:
                 input=state,
                 config={ "recursion_limit": 100 }
             )
+            output_model = LitMonitorState(**final_result)
             session_span.set_status(trace_api.Status(trace_api.StatusCode.OK))
         print("Agent finished!")
-        return final_result
+        return output_model
 
     def _initialize_agent_graph(self):
         """
@@ -322,15 +322,15 @@ def main():
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         # save whole result dict
         with open("results/output_monitor_state_" + timestamp + ".json", mode='w') as fp:
-            json.dump(result, fp=fp, indent=2)
+            fp.write(result.model_dump_json(indent=2, ensure_ascii=True))
         # we can convert the article values straight into a DataFrame and write it to CSV for evals
-        new_articles = result['new_articles']
+        new_articles = result.new_articles
         df = pd.DataFrame(new_articles)
         # add LLM metadata
         df['model'] = model
         df['base_url'] = base_url
         df.to_csv("results/monitor_article_data_" + timestamp + ".csv")
-        print(json.dumps(result, indent=2))
+        print(result.model_dump_json(indent=2))
 
 
 if __name__ == "__main__":
