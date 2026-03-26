@@ -1,3 +1,4 @@
+import argparse
 import json
 import sys
 import datetime
@@ -261,22 +262,30 @@ class LitMonitor:
         # compile graph
         self.agent_graph = self.agent_graph.compile()
 
+def parse_args():
+    """
+    Set up command line argument parsing.
+    """
+    parser = argparse.ArgumentParser(description="Check the relevance of the most recent papers matching a PubMed search.")
+    parser.add_argument("filename", type=Path, required=True, help="Path to the configuration file to use")
+    parser.add_argument("-U", "--update", action="store_true",
+                        help="Update the previously-run search described in the configuration file.")
+    parser.add_argument("-O", "--output", type=Path, action="store", help="Path to the configuration file to use")
+    return parser.parse_args()
+
 def main():
     """
     The main method for running the literature monitor from the command line.
     Takes one unnamed argument, the name of the topic file to use.
     """
-    # make sure we have at least one argument
-    if len(sys.argv) < 2:
-        print("Usage: python new_lit_monitor.py <topic_file.csv>")
-        sys.exit(1)
+    # automatically parse the arguments
+    args = parse_args()
 
     # try loading the topic file
-    input_path = Path(sys.argv[1])
+    input_path = args.filename
 
     if not input_path.exists():
-        print(f"Error: Topic file not found: {input_path}")
-        sys.exit(1)
+        raise FileNotFoundError(f"Error: Topic file not found: {input_path}")
 
     # Read the topic file
     try:
