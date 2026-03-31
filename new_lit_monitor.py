@@ -1,7 +1,7 @@
 import argparse
 import sys
 import datetime
-import pandas as pd
+# import pandas as pd
 
 from pathlib import Path
 from pydantic import BaseModel, Field
@@ -262,15 +262,24 @@ class LitMonitor:
         # compile graph
         self.agent_graph = self.agent_graph.compile()
 
-def parse_args():
+def parse_args() -> argparse.Namespace:
     """
     Set up command line argument parsing.
     """
-    parser = argparse.ArgumentParser(description="Check the relevance of the most recent papers matching a PubMed search.")
+    parser = argparse.ArgumentParser(description=(
+        "Check the relevance of the most recent papers matching a PubMed search. ",
+        "Default behavior is to ignore any list of previously-seen articles in the input file and ",
+        "to output results to a new file with the same name as the ",
+        "input file plus a timestamp. If --update is used, previously-seen articles in the input file ",
+        "are NOT reevaluated, and the output results will be combined ",
+        "with the input file and written to that file. The --output option allows one to specify a name ",
+        "for the output file, regardless of whether the --update flag is set."
+    ))
     parser.add_argument("filename", type=Path, help="Path to the configuration file to use")
     parser.add_argument("-U", "--update", action="store_true",
                         help="Update the previously-run search described in the configuration file.")
-    parser.add_argument("-O", "--output", type=Path, action="store", help="Path to the configuration file to use")
+    parser.add_argument("-O", "--output", type=Path, action="store", help="Path to the output file to store results.")
+    parser.add_argument("-K", "--key", type=str, action="store", help="API key to use with the LLM, if needed.")
     return parser.parse_args()
 
 def main():
@@ -283,54 +292,101 @@ def main():
 
     # try loading the topic file
     input_path = args.filename
-
+    
     if not input_path.exists():
         raise FileNotFoundError(f"Error: Topic file not found: {input_path}")
-
+    
     # Read the topic file
     try:
-        topic_data = pd.read_csv(input_path)
+        input_settings = LitMonitorState.model_validate_json(input_path.read_text())
     except Exception as e:
         print(f"Error reading topic file: {e}")
         sys.exit(1)
 
-    # TODO: set up the monitor agent
     # model="huggingface/Qwen/Qwen2.5-Coder-32B-Instruct"
     # model="openai/gemma-3n-E4B-it-UD-Q5_K_XL-cpu"
-    model="openai/granite-4.0-h-tiny-UD-Q5_K_XL-cpu"
+    # model="openai/granite-4.0-h-tiny-UD-Q5_K_XL-cpu"
     # model="openai/gemma-3-4B-it-UD-Q4_K_XL-cpu"
-    api_key="sk-fake"
-    base_url="http://127.0.0.1:8080/v1"
+    # base_url="http://127.0.0.1:8080/v1"
+
+    # get API key, if provided
+    if args.key is not None:
+        print("Custom key provided!")
+        api_key = args.key
+    else:
+        api_key = "sk-fake"
 
     agent = LitMonitor(
-        llm=model,
+        llm=input_settings.llm,
         api_key=api_key,
-        base_url=base_url
+        base_url=input_settings.base_url
     )
 
-    # run agent on each query/search term pair in the configuration file
-    for row in topic_data.itertuples():
-        # TODO: Have the agent invoke the monitor for each topic
-        print(f"Running agent with query:\n\n{row.query}\n\nSearch term:{row.search_term}\n\n")
-        result = agent.check_search(
-            topic_description=row.query, 
-            search_terms=row.search_term,
-            max_results=25
-        )
+    # if we are updating, need to provide the list of prior results
+    if args.update:
+        # grab list of prior PMIDs and put it in a set
+        prior_pmids = set(input_settings.prior_pmids)
+        # add the list of new articles
+        for article in input_settings.new_articles:
+            prior_pmids.add(article['pubmed_id'])
+        # convert to a list
+        prior_pmids = list(prior_pmids)
+    else:
+        prior_pmids = []
+    print("Prior PMIDs: " + str(prior_pmids))
+    
+    print(f"Running agent with query:\n\n{input_settings.topic_description}\n\nSearch term :{input_settings.search_terms}\n\n")
+    result = agent.check_search(
+        topic_description=input_settings.topic_description, 
+        search_terms=input_settings.search_terms,
+        max_results=input_settings.num_pubmed_results,
+        prior_pmids=prior_pmids
+    )
 
-        # put timestamp on outputs
+    # if output file is specified, use that
+    if args.output is not None:
+        output_file_name = args.output
+    elif args.update:
+        # use the file we're updating
+        output_file_name = input_path
+    else:
+        # put timestamp on generic output file name
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        # save whole result dict
-        with open("results/output_monitor_state_" + timestamp + ".json", mode='w') as fp:
-            fp.write(result.model_dump_json(indent=2, ensure_ascii=True))
-        # we can convert the article values straight into a DataFrame and write it to CSV for evals
-        new_articles = result.new_articles
-        df = pd.DataFrame(new_articles)
-        # add LLM metadata
-        df['model'] = model
-        df['base_url'] = base_url
-        df.to_csv("results/monitor_article_data_" + timestamp + ".csv")
-        print(result.model_dump_json(indent=2))
+        output_file_name = "results/output_monitor_state_" + timestamp + ".json"
+    # save whole result dict
+    with open(output_file_name, mode='w') as fp:
+        fp.write(result.model_dump_json(indent=2, ensure_ascii=True))
+    # we can convert the article values straight into a DataFrame and write it to CSV for evals
+    # new_articles = result.new_articles
+    # df = pd.DataFrame(new_articles)
+    # # add LLM metadata
+    # df['model'] = agent.llm
+    # df['base_url'] = agent.base_url
+    # df.to_csv("results/monitor_article_data_" + timestamp + ".csv")
+    print(result.model_dump_json(indent=2))
+    # # run agent on each query/search term pair in the configuration file
+    # for row in topic_data.itertuples():
+    #     # TODO: Have the agent invoke the monitor for each topic
+    #     print(f"Running agent with query:\n\n{row.query}\n\nSearch term:{row.search_term}\n\n")
+    #     result = agent.check_search(
+    #         topic_description=row.query, 
+    #         search_terms=row.search_term,
+    #         max_results=25
+    #     )
+
+    #     # put timestamp on outputs
+    #     timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    #     # save whole result dict
+    #     with open("results/output_monitor_state_" + timestamp + ".json", mode='w') as fp:
+    #         fp.write(result.model_dump_json(indent=2, ensure_ascii=True))
+    #     # we can convert the article values straight into a DataFrame and write it to CSV for evals
+    #     new_articles = result.new_articles
+    #     df = pd.DataFrame(new_articles)
+    #     # add LLM metadata
+    #     df['model'] = model
+    #     df['base_url'] = base_url
+    #     df.to_csv("results/monitor_article_data_" + timestamp + ".csv")
+    #     print(result.model_dump_json(indent=2))
 
 
 if __name__ == "__main__":
