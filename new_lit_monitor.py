@@ -58,12 +58,14 @@ def do_search(state: LitMonitorState) -> Command[Literal["eval_all_papers", "col
     """
     # get the search string
     current_query = state.search_terms
+    # how far back do we need to search?
+    max_results = state.num_pubmed_results + len(state.prior_pmids)
     # run the actual search
     search_tool = PubmedSearchTool()
     pubmed_results = search_tool.search_pubmed(
         query=current_query, 
         start_results=0,
-        max_results=state.num_pubmed_results,
+        max_results=max_results,
         sort='pub_date')
 
     # get any new articles
