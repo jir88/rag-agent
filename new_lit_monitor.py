@@ -321,7 +321,8 @@ def main():
     agent = LitMonitor(
         llm=input_settings.llm,
         api_key=api_key,
-        base_url=input_settings.base_url
+        base_url=input_settings.base_url,
+        sampling_params=input_settings.sampling_params
     )
 
     # if we are updating, need to provide the list of prior results
