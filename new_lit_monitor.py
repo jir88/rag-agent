@@ -269,12 +269,12 @@ def parse_args() -> argparse.Namespace:
     Set up command line argument parsing.
     """
     parser = argparse.ArgumentParser(description=(
-        "Check the relevance of the most recent papers matching a PubMed search. ",
-        "Default behavior is to ignore any list of previously-seen articles in the input file and ",
-        "to output results to a new file with the same name as the ",
-        "input file plus a timestamp. If --update is used, previously-seen articles in the input file ",
-        "are NOT reevaluated, and the output results will be combined ",
-        "with the input file and written to that file. The --output option allows one to specify a name ",
+        "Check the relevance of the most recent papers matching a PubMed search. "
+        "Default behavior is to ignore any list of previously-seen articles in the input file and "
+        "to output results to a new file with the same name as the "
+        "input file plus a timestamp. If --update is used, previously-seen articles in the input file "
+        "are NOT reevaluated, and the output results will be combined "
+        "with the input file and written to that file. The --output option allows one to specify a name "
         "for the output file, regardless of whether the --update flag is set."
     ))
     parser.add_argument("filename", type=Path, help="Path to the configuration file to use")
