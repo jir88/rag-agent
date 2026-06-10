@@ -28,6 +28,30 @@ tracer_provider = register(
 # now that we've set up a provider, grab the actual tracer being used
 tracer = trace.get_tracer(__name__)
 
+class Article(BaseModel):
+    """A single PubMed article with metadata and evaluation results."""
+
+    pubmed_id: int = Field(description="PubMed ID for this article.")
+    doi: str = Field(description="The DOI string for this article.")
+    title: str = Field(description="Article title")
+    date: str = Field(description="Article publication date")
+    authors: List[Dict[str, Any]] = Field(description="List of dicts, one per author. Dict must contain 'name' key.")
+    source: str = Field(
+        description="Article source, usually journal title. May be blank.",
+        default=""
+    )
+    abstract: str = Field(
+        description="Article abstract. May be blank if no abstract is available.",
+        default=""
+    )
+    evaluation: str = Field(
+        description="Text explaining whether this article is relevant to the search topic.",
+        default=False
+    )
+    is_relevant: bool = Field(
+        description="Whether or not this article is relevant to the search topic."
+    )
+
 class LitMonitorState(BaseModel):
     llm: str = Field(description="The LiteLLM path to the inference client we're using to talk to an LLM.")
     api_key : str = Field(
@@ -43,7 +67,7 @@ class LitMonitorState(BaseModel):
         default=[],
         description="A list of the PMIDs we have seen before."
     )
-    new_articles: List[Dict[str, Any]] = Field(
+    new_articles: List[Article] = Field(
         default=[],
         description="A list of dicts containing each new article we have found."
     )
@@ -70,7 +94,9 @@ def do_search(state: LitMonitorState) -> Command[Literal["eval_all_papers", "col
 
     # get any new articles
     new_results = [res for res in pubmed_results if res['pubmed_id'] not in state.prior_pmids]
-    # TODO: how to handle routing?
+    # convert dict results into Article objects
+    new_objs = [Article.model_validate(res) for res in pubmed_results]
+
     if len(new_results) == 0:
         return Command(
             update={
@@ -80,7 +106,7 @@ def do_search(state: LitMonitorState) -> Command[Literal["eval_all_papers", "col
         )
     return Command(
         update={
-            'new_articles': new_results
+            'new_articles': new_objs
         },
         goto="eval_all_papers"
     )
@@ -119,9 +145,9 @@ def eval_all_papers(state:LitMonitorState) -> LitMonitorState:
             {
                 'role': 'user',
                 'content': article_relevance_prompt.format(
-                    title=article['title'],
-                    date=article['date'],
-                    abstract=article['abstract']
+                    title=article.title,
+                    date=article.date,
+                    abstract=article.abstract
                 )
             }
         ]
@@ -154,8 +180,8 @@ def eval_all_papers(state:LitMonitorState) -> LitMonitorState:
                 attempts += 1
 
         # record evaluation, relevance flag will be None if we failed
-        article['evaluation'] = rel_response['content']
-        article['is_relevant'] = is_relevant
+        article.evaluation = rel_response['content']
+        article.is_relevant = is_relevant
     
     # update state with article list, now with relevance added
     return {
