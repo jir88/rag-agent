@@ -121,6 +121,11 @@ def start_research(state: ResearchState):
     formatted_plan = plan.format_readable()
     print("Initial list of topics to research:\n\n" + formatted_plan)
 
+    # TODO: formalize the topic list more?
+    # could set it up so the researcher is forced to focus on one topic at
+    # a time and check them all off formally, per Anthropic's idea
+    # TODO: could persist the topic list somehow for larger, longer-running
+    # projects where agent gives a response and then needs a follow-up session later
     # create the list of messages that will be used for downstream steps
     # combine the basic system prompt with the query and initial plan
     system_prompt = (
@@ -185,6 +190,7 @@ def compose_pubmed_query(state: ResearchState):
         new_query = new_query[1]
         print("PubMed query: " + new_query)
     else:
+        # TODO: explicitly retry query generation here
         print("Badly formatted response: " + ai_msg['content'])
         return {}
     # if query list hasn't been made, make it
@@ -220,6 +226,7 @@ def search_and_summarize(state: ResearchState):
         "Publication date: {date}\n"
         "Abstract: {abstract}"
     )
+    # TODO: prompt is apparently too negative, need to moderate a bit?
     article_relevance_prompt = (
         "Is this article relevant? In a single sentence, briefly explain why this article is "
         "relevant or irrelevant to your literature review topic. Be skeptical. Finally, if the article is "
@@ -236,6 +243,8 @@ def search_and_summarize(state: ResearchState):
     search_tool = PubmedSearchTool()
     pubmed_results = search_tool.search_pubmed(query=current_query, start_results=start_results,
                                    max_results=state['num_pubmed_results'], sort='relevance')
+    # TODO: rework this logic so we can try different searches without cluttering up the main message
+    # thread with them. Maybe move this up to the query function?
     # if search returned no results, tell the agent that
     if (pubmed_results is None) or len(pubmed_results) == 0:
         print(f"[Warning] PubMed query {current_query} returned no results!")
