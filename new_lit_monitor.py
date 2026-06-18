@@ -49,7 +49,8 @@ class Article(BaseModel):
         default=False
     )
     is_relevant: bool = Field(
-        description="Whether or not this article is relevant to the search topic."
+        description="Whether or not this article is relevant to the search topic.",
+        default=False
     )
 
 class LitMonitorState(BaseModel):
