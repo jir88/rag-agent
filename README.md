@@ -2,6 +2,34 @@
 
 A simple, lightweight agent that evaluates new PubMed articles for you. Based on LangGraph.
 
+## Agent Architecture
+
+## Input/Output Format
+
+Input and output uses JSON-serialized pydantic objects of class LitMonitorState, with the following fields:
+
+    llm (str): The LiteLLM path to the inference client we're using to talk to an LLM.
+    api_key (str): API key for inference client, needs a placeholder value even if LLM doesn't require it.
+    base_url (str): URL where inference client is located.
+    sampling_params (Dict[str, Any]): OpenAI-style dict of sampling parameters for the LLM.
+    topic_description (str): A description of the topic the user is interested in.
+    search_terms (str): The PubMed search string being monitored. Use their search syntax to combine multiple terms.
+    prior_pmids (List[str]): A list of the PMIDs we have seen before (default=[]).
+    new_articles (List[Article]): A list of Article objects containing each new article we have found (default=[]).
+    num_pubmed_results (int): The maximum number of search results to evaluate (default=25).
+
+Articles are JSON-serialized objects with the following fields:
+
+    pubmed_id (int): PubMed ID for this article.
+    doi (str): The DOI string for this article.
+    title (str): Article title
+    date (str): Article publication date
+    authors (List[Dict[str, Any]]): List of dicts, one per author. Dict must contain 'name' key.
+    source (str): Article source, usually journal title. May be blank.
+    abstract (str): Article abstract. May be blank if no abstract is available.
+    evaluation (str): Text explaining whether this article is relevant to the search topic. (default=False)
+    is_relevant (bool): Whether or not this article is relevant to the search topic. (default=False)
+
 ## New Lit Monitor
 
 Non-interactive python script that performs a single monitor run based on a JSON configuration file.
