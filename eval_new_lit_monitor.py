@@ -55,7 +55,7 @@ class EvalLitMonitor:
     # profit
     def evaluate_on_articles(
         self, topic_description:str,
-        article_list:List[Dict[str, Any]] = []
+        article_list:List[nlm.Article] = []
         ):
         """
         Run the monitor agent for a given topic and search term.
