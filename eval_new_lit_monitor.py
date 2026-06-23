@@ -87,9 +87,10 @@ class EvalLitMonitor:
                 input=state,
                 config={ "recursion_limit": 100 }
             )
+            output_model = nlm.LitMonitorState(**final_result)
             session_span.set_status(trace_api.Status(trace_api.StatusCode.OK))
         print("Agent finished!")
-        return final_result
+        return output_model
 
     def _initialize_agent_graph(self):
         """
