@@ -1,3 +1,4 @@
+import argparse
 import datetime
 import json
 import sys
@@ -113,18 +114,33 @@ class EvalLitMonitor:
         # compile graph
         self.agent_graph = self.agent_graph.compile()
 
+def parse_args() -> argparse.Namespace:
+    """
+    Set up command line argument parsing.
+    """
+    # FIXME: update to use JSON files instead of CSV files. How are we going to store evals in this
+    # setting?
+    # FIXME: update arguments to actually be correct!
+    parser = argparse.ArgumentParser(description=(
+        "Evaluate the performance of a specific configuration of the new_lit_monitor agent by "
+        "testing it on a list of articles where we have provided gold-standard human labels."
+    ))
+    parser.add_argument("eval_file", type=Path, help="Path to a JSON settings file where the articles have been categorized by a human.")
+    parser.add_argument("-R", "--repeats", type=int, default=1, action="store",
+                        help="Optional flag to run the agent multiple times for each article in the evaluation file.")
+    parser.add_argument("-O", "--output", type=Path, action="store", help="Path to the output file to store results.")
+    parser.add_argument("-K", "--key", type=str, action="store", help="API key to use with the LLM, if needed.")
+    return parser.parse_args()
+
 def main():
     """
     Main function that loads a set of test articles and evaluates them against lit monitor configurations.
     """
-    # make sure we have at least one argument
-    if len(sys.argv) < 2:
-        print("Usage: python eval_new_lit_monitor.py <eval_file.csv>")
-        sys.exit(1)
-
+    # automatically parse the arguments
+    args = parse_args()
+    
     # try loading the eval configuration file
-    input_path = Path(sys.argv[1])
-    eval_dir = input_path.parent
+    input_path = args.eval_file
 
     if not input_path.exists():
         print(f"Error: Topic file not found: {input_path}")
