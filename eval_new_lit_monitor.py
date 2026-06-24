@@ -4,7 +4,7 @@ import sys
 import new_lit_monitor as nlm
 
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List
 from langgraph.graph import StateGraph, START, END
 
 from opentelemetry import trace
