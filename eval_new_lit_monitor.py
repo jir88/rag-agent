@@ -1,8 +1,6 @@
 import argparse
 import datetime
-import json
 import sys
-import pandas as pd
 import new_lit_monitor as nlm
 
 from pathlib import Path
@@ -143,58 +141,57 @@ def main():
     input_path = args.eval_file
 
     if not input_path.exists():
-        print(f"Error: Topic file not found: {input_path}")
+        print(f"Error: Evaluation file not found: {input_path}")
         sys.exit(1)
 
     # Read the evaluation configuration file
     try:
-        validation_queries = pd.read_csv(input_path)
+        validation_settings = nlm.LitMonitorState.model_validate_json(input_path.read_text())
     except Exception as e:
-        print(f"Error reading topic file: {e}")
+        print(f"Error reading evaluation file: {e}")
         sys.exit(1)
     
-    # for each evaluation in the configuration file
-    for row in validation_queries.itertuples():
-        print(row)
-        # not sure how to handle API keys, but not relevant for me...
-        api_key="sk-fake"
+    # get API key, if provided
+    if args.key is not None:
+        print("Custom key provided!")
+        api_key = args.key
+    else:
+        api_key = "sk-fake"
+    
+    # set up evaluation agent
+    agent = EvalLitMonitor(
+        llm=validation_settings.llm,
+        api_key=api_key,
+        base_url=validation_settings.base_url
+    )
 
-        agent = EvalLitMonitor(
-            llm=row.model,
-            api_key=api_key,
-            base_url=row.base_url
-        )
+    # if output file is specified, use that
+    if args.output is not None:
+        output_file_base = args.output
+    else:
+        # put timestamp on input file name
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        output_file_base = input_path.parent.joinpath(input_path.stem + "_eval_" + timestamp)
 
-        # read evaluation file
-        # file is relative to the validation queries table
-        qr_path = eval_dir.joinpath(row.query_results)
-        article_table = pd.read_csv(qr_path)
-        # run current monitor on these files
-        # don't go row by row, just build the whole column and send it
-        # grab the article data columns only
-        article_data_only = article_table[["pubmed_id", "doi", "title", "date", "authors", "source", "abstract"]]
-        # convert to a list of dicts
-        article_dicts = article_data_only.to_dict('records')
+    for n in range(args.repeats):
+        print(f"Running replicate {n+1} of {args.repeats}")
+
         # feed it to the eval monitor
         result = agent.evaluate_on_articles(
-            topic_description=row.query,
-            article_list=article_dicts
+            topic_description=validation_settings.topic_description,
+            article_list=validation_settings.new_articles
         )
-        # put timestamp on outputs
-        timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        # save the result
+        # if using more than one repeat, add counter to end of file name
+        if args.repeats > 1:
+            output_file_name = output_file_base.parent.joinpath(output_file_base.stem + "-" + str(n) + ".json")
+        else:
+            output_file_name = output_file_base.parent.joinpath(output_file_base.stem + ".json")
         # save whole result dict
-        with open("evals/eval_results_" + row.query_results + "_" + timestamp + ".json", mode='w') as fp:
-            json.dump(result, fp=fp, indent=2)
-        # we can convert the article values straight into a DataFrame and write it to CSV for evals
-        new_articles = result['new_articles']
-        df = pd.DataFrame(new_articles)
-        # add LLM metadata
-        df['model'] = row.model
-        df['base_url'] = row.base_url
-        df.to_csv("evals/eval_results_" + row.query_results + "_" + timestamp + ".csv")
-        print(json.dumps(result, indent=2))
-    # end eval file loop
+        with open(output_file_name, mode='w') as fp:
+            fp.write(result.model_dump_json(indent=2, ensure_ascii=True))
 
+    print("Finished evals!")
 
 if __name__ == "__main__":
     main()
