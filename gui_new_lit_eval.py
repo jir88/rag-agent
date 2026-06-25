@@ -1,9 +1,7 @@
 from nicegui import ui, events
-from sklearn.metrics import confusion_matrix
 
-import numpy as np
-import pandas as pd
-import io
+import new_lit_monitor as nlm
+import sys
 
 #import eval_new_lit_monitor as em
 
@@ -13,58 +11,60 @@ ui.switch('Dark mode').bind_value(dark)
 
 async def handle_upload(e: events.UploadEventArguments):
     """
-    Uploads evaluation data file and adds the data to the table.
+    Uploads an agent result file and loads the data into the table.
     """
-    topic_display_text = await e.file.text()
-    # convert the CSV text into a data frame
-    eval_results_data = pd.read_csv(io.StringIO(topic_display_text))
+    # Read the result file
+    try:
+        agent_results = nlm.LitMonitorState.model_validate_json(await e.file.text())
+    except Exception as e:
+        print(f"Error reading evaluation file: {e}")
+        sys.exit(1)
 
     result_rows = []
-    for row in eval_results_data.itertuples():
+    for article in agent_results.new_articles:
         row_data = {
-            "pubmed_id": row.pubmed_id,
-            "date": row.date,
-            "title": row.title,
-            "source": row.source,
-            "is_relevant": row.is_relevant,
-            "gold_standard": row.gold_standard,
-            "abstract": row.abstract,
-            "query": row.query,
-            "evaluation": row.evaluation,
+            "pubmed_id": article.pubmed_id,
+            "date": article.date,
+            "title": article.title,
+            "source": article.source,
+            "is_relevant": article.is_relevant,
+            "abstract": article.abstract,
+            "query": agent_results.topic_description,
+            "evaluation": article.evaluation,
         }
         result_rows.append(row_data)
     table_results_data.rows = result_rows
 
     # calculate whole-dataset statistics
-    y_true = eval_results_data['gold_standard'].to_numpy(dtype=np.bool)
-    y_pred = eval_results_data['is_relevant'].to_numpy(dtype=np.bool)
-    cm = confusion_matrix(
-        y_true=y_true, y_pred=y_pred,
-    )
-    table_conf_mat.rows = [
-        {'row_label': 'Irrelevant', 'negative': cm[0, 0], 'positive': cm[0, 1]},
-        {'row_label': 'Relevant', 'negative': cm[1, 0], 'positive': cm[1, 1]},
-    ]
+    # y_true = eval_results_data['gold_standard'].to_numpy(dtype=np.bool)
+    # y_pred = eval_results_data['is_relevant'].to_numpy(dtype=np.bool)
+    # cm = confusion_matrix(
+    #     y_true=y_true, y_pred=y_pred,
+    # )
+    # table_conf_mat.rows = [
+    #     {'row_label': 'Irrelevant', 'negative': cm[0, 0], 'positive': cm[0, 1]},
+    #     {'row_label': 'Relevant', 'negative': cm[1, 0], 'positive': cm[1, 1]},
+    # ]
 
-    # calculate accuracy
-    pred_accuracy = np.sum(y_true == y_pred)/len(y_true)
-    label_accuracy.text = f"Accuracy: {pred_accuracy:.1%}"
-    # calculate PPV
-    true_positives = np.sum((y_true == 1) & (y_pred == 1))
-    false_positives = np.sum((y_true == 0) & (y_pred == 1))
-    if (true_positives + false_positives) > 0:
-        ppv = true_positives/(true_positives + false_positives)
-    else:
-        ppv = 0.0
-    label_ppv.text = f"PPV: {ppv:.1%}"
-    # calculate NPV
-    true_negatives = np.sum((y_true == 0) & (y_pred == 0))
-    false_negatives = np.sum((y_true == 1) & (y_pred == 0))
-    if (true_negatives + false_negatives) > 0:
-        npv = true_negatives/(true_negatives + false_negatives)
-    else:
-        npv = 0.0
-    label_npv.text = f"NPV: {npv:.1%}"
+    # # calculate accuracy
+    # pred_accuracy = np.sum(y_true == y_pred)/len(y_true)
+    # label_accuracy.text = f"Accuracy: {pred_accuracy:.1%}"
+    # # calculate PPV
+    # true_positives = np.sum((y_true == 1) & (y_pred == 1))
+    # false_positives = np.sum((y_true == 0) & (y_pred == 1))
+    # if (true_positives + false_positives) > 0:
+    #     ppv = true_positives/(true_positives + false_positives)
+    # else:
+    #     ppv = 0.0
+    # label_ppv.text = f"PPV: {ppv:.1%}"
+    # # calculate NPV
+    # true_negatives = np.sum((y_true == 0) & (y_pred == 0))
+    # false_negatives = np.sum((y_true == 1) & (y_pred == 0))
+    # if (true_negatives + false_negatives) > 0:
+    #     npv = true_negatives/(true_negatives + false_negatives)
+    # else:
+    #     npv = 0.0
+    # label_npv.text = f"NPV: {npv:.1%}"
 
 # file uploader to select the evaluation results we want to look at
 eval_result_uploader = ui.upload(
@@ -75,7 +75,7 @@ eval_result_uploader = ui.upload(
     auto_upload=True,
     label="Upload evaluation results:"
 )
-eval_result_uploader.props('accept=.csv')
+eval_result_uploader.props('accept=.json')
 
 # global variable to store the results being looked at
 eval_results_data = None
