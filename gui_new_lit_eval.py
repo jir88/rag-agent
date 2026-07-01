@@ -3,6 +3,7 @@ from nicegui import ui, events
 import new_lit_monitor as nlm
 import sys
 
+from monitor import Article,LitMonitorState
 #import eval_new_lit_monitor as em
 
 # toggle to control light/dark theme
@@ -15,7 +16,7 @@ async def handle_upload(e: events.UploadEventArguments):
     """
     # Read the result file
     try:
-        agent_results = nlm.LitMonitorState.model_validate_json(await e.file.text())
+        agent_results = LitMonitorState.model_validate_json(await e.file.text())
     except Exception as e:
         print(f"Error reading evaluation file: {e}")
         sys.exit(1)

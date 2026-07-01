@@ -7,6 +7,8 @@ from pathlib import Path
 from typing import List
 from langgraph.graph import StateGraph, START, END
 
+from monitor import Article,LitMonitorState
+
 from opentelemetry import trace
 from opentelemetry import trace as trace_api  # SDK for creating traces
 
@@ -54,7 +56,7 @@ class EvalLitMonitor:
     # profit
     def evaluate_on_articles(
         self, topic_description:str,
-        article_list:List[nlm.Article] = []
+        article_list:List[Article] = []
         ):
         """
         Run the monitor agent for a given topic and search term.
@@ -86,7 +88,7 @@ class EvalLitMonitor:
                 input=state,
                 config={ "recursion_limit": 100 }
             )
-            output_model = nlm.LitMonitorState(**final_result)
+            output_model = LitMonitorState(**final_result)
             session_span.set_status(trace_api.Status(trace_api.StatusCode.OK))
         print("Agent finished!")
         return output_model
@@ -96,7 +98,7 @@ class EvalLitMonitor:
         Assemble the agent graph and compile it.
         """
         # construct graph object
-        self.agent_graph = StateGraph(nlm.LitMonitorState)
+        self.agent_graph = StateGraph(LitMonitorState)
 
         # define nodes
         self.agent_graph.add_node("eval_all_papers", nlm.eval_all_papers)
@@ -146,7 +148,7 @@ def main():
 
     # Read the evaluation configuration file
     try:
-        validation_settings = nlm.LitMonitorState.model_validate_json(input_path.read_text())
+        validation_settings = LitMonitorState.model_validate_json(input_path.read_text())
     except Exception as e:
         print(f"Error reading evaluation file: {e}")
         sys.exit(1)
