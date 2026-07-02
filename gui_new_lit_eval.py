@@ -59,13 +59,13 @@ class EvalGUI:
             row_key='pubmed_id',
             pagination=3,
             on_select=self.handle_result_selection,
-        )
+        ).classes("w-7/8")
 
-        self.label_title = ui.label("Title").classes("text-3xl")
-        self.label_abstract = ui.label().classes("text-base")
+        self.label_title = ui.label("Title").classes("text-3xl w-7/8")
+        self.label_abstract = ui.label().classes("text-base w-7/8")
         # the criteria for article relevance
         ui.label("Relevance criteria:").classes("text-2xl")
-        self.label_query = ui.label().classes("text-base")
+        self.label_query = ui.label().classes("text-base w-7/8")
         # what the LLM thought about the article
 
         self.cb_article_relevant = ui.checkbox(
@@ -75,7 +75,7 @@ class EvalGUI:
         ui.label("Why is/isn't the article relevant?").classes("text-2xl")
         self.ta_article_eval = ui.textarea(
             placeholder="Write explanation here."
-        )
+        ).classes("text-base w-7/8")
 
     async def handle_upload(self, e: events.UploadEventArguments):
         """
