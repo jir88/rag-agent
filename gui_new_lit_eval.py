@@ -1,145 +1,130 @@
-from nicegui import ui, events
+from nicegui import ui, events, elements
 
-import new_lit_monitor as nlm
 import sys
 
 from monitor import Article,LitMonitorState
-#import eval_new_lit_monitor as em
 
-# toggle to control light/dark theme
-dark = ui.dark_mode(value=True)
-ui.switch('Dark mode').bind_value(dark)
+class EvalGUI:
+    """Class managing the literature evaluation GUI."""
 
-async def handle_upload(e: events.UploadEventArguments):
-    """
-    Uploads an agent result file and loads the data into the table.
-    """
-    # Read the result file
-    try:
-        agent_results = LitMonitorState.model_validate_json(await e.file.text())
-    except Exception as e:
-        print(f"Error reading evaluation file: {e}")
-        sys.exit(1)
+    agent_results: LitMonitorState
+    current_article: Article
+    """Currently selected article, if any."""
 
-    result_rows = []
-    for article in agent_results.new_articles:
-        row_data = {
-            "pubmed_id": article.pubmed_id,
-            "date": article.date,
-            "title": article.title,
-            "source": article.source,
-            "is_relevant": article.is_relevant,
-            "abstract": article.abstract,
-            "query": agent_results.topic_description,
-            "evaluation": article.evaluation,
-        }
-        result_rows.append(row_data)
-    table_results_data.rows = result_rows
+    # GUI elements
+    table_results_data: elements.table.Table
+    """Table showing articles in the current result."""
+    label_title: elements.label.Label
+    """Label to hold selected article title."""
+    label_abstract: elements.label.Label
+    """Label to hold selected article abstract."""
+    label_query: elements.label.Label
+    """Label to hold the criteria for whether an article is relevant."""
+    cb_article_relevant: elements.checkbox.Checkbox
+    """Check box showing/controlling whether article is judged as relevant."""
+    ta_article_eval: elements.textarea.Textarea
+    """Text area showing the article relevance evaluation."""
 
-    # calculate whole-dataset statistics
-    # y_true = eval_results_data['gold_standard'].to_numpy(dtype=np.bool)
-    # y_pred = eval_results_data['is_relevant'].to_numpy(dtype=np.bool)
-    # cm = confusion_matrix(
-    #     y_true=y_true, y_pred=y_pred,
-    # )
-    # table_conf_mat.rows = [
-    #     {'row_label': 'Irrelevant', 'negative': cm[0, 0], 'positive': cm[0, 1]},
-    #     {'row_label': 'Relevant', 'negative': cm[1, 0], 'positive': cm[1, 1]},
-    # ]
+    def __init__(self):
+        self.agent_results = None
+        self.current_article = None
 
-    # # calculate accuracy
-    # pred_accuracy = np.sum(y_true == y_pred)/len(y_true)
-    # label_accuracy.text = f"Accuracy: {pred_accuracy:.1%}"
-    # # calculate PPV
-    # true_positives = np.sum((y_true == 1) & (y_pred == 1))
-    # false_positives = np.sum((y_true == 0) & (y_pred == 1))
-    # if (true_positives + false_positives) > 0:
-    #     ppv = true_positives/(true_positives + false_positives)
-    # else:
-    #     ppv = 0.0
-    # label_ppv.text = f"PPV: {ppv:.1%}"
-    # # calculate NPV
-    # true_negatives = np.sum((y_true == 0) & (y_pred == 0))
-    # false_negatives = np.sum((y_true == 1) & (y_pred == 0))
-    # if (true_negatives + false_negatives) > 0:
-    #     npv = true_negatives/(true_negatives + false_negatives)
-    # else:
-    #     npv = 0.0
-    # label_npv.text = f"NPV: {npv:.1%}"
+        # initialize GUI
 
-# file uploader to select the evaluation results we want to look at
-eval_result_uploader = ui.upload(
-    on_upload=handle_upload,
-    max_file_size=10e6,
-    multiple=False,
-    max_files=1,
-    auto_upload=True,
-    label="Upload evaluation results:"
-)
-eval_result_uploader.props('accept=.json')
+        # toggle to control light/dark theme
+        dark = ui.dark_mode(value=True)
+        ui.switch('Dark mode').bind_value(dark)
 
-# global variable to store the results being looked at
-eval_results_data = None
+        # file uploader to select the evaluation results we want to look at
+        eval_result_uploader = ui.upload(
+            on_upload=self.handle_upload,
+            max_file_size=10e6,
+            multiple=False,
+            max_files=1,
+            auto_upload=True,
+            label="Upload evaluation results:"
+        )
+        eval_result_uploader.props('accept=.json')
 
-# display summary statistics about the results
-with ui.row():
-    # confusion matrix
-    columns = [
-        {'name': 'row_label', 'label': 'True relevance', 'field': 'row_label'},
-        {'name': 'negative', 'label': 'Pred. irrelevant', 'field': 'negative'},
-        {'name': 'positive', 'label': 'Pred. relevant', 'field': 'positive'},
-    ]
-    # placeholder data
-    rows = [
-        {'row_label': 'Irrelevant', 'positive': 0, 'negative': 0},
-        {'row_label': 'Relevant', 'positive': 0, 'negative': 0},
-    ]
-    table_conf_mat = ui.table(rows=rows, columns=columns, row_key='row_label')
+        # table showing the articles in this evaluation run
+        columns = [
+            {'name': 'title', 'label': 'Title', 'field': 'title', 'required': True, 'align': 'left'},
+            {'name': 'date', 'label': 'Published', 'field': 'date', 'sortable': True},
+            {'name': 'is_relevant', 'label': 'Relevant?', 'field':'is_relevant'}
+        ]
+        self.table_results_data = ui.table(
+            rows=[], 
+            columns=columns,
+            selection='single', 
+            row_key='pubmed_id',
+            pagination=3,
+            on_select=self.handle_result_selection,
+        )
 
-    # miscellaneous stats
-    with ui.column():
-        label_accuracy = ui.label("Accuracy:")
-        label_ppv = ui.label("PPV:")
-        label_npv = ui.label("NPV:")
+        self.label_title = ui.label("Title").classes("text-3xl")
+        self.label_abstract = ui.label().classes("text-base")
+        # the criteria for article relevance
+        ui.label("Relevance criteria:").classes("text-2xl")
+        self.label_query = ui.label().classes("text-base")
+        # what the LLM thought about the article
 
-# table to put the results in
-columns = [
-        {'name': 'title', 'label': 'Title', 'field': 'title', 'required': True, 'align': 'left'},
-        {'name': 'date', 'label': 'Published', 'field': 'date', 'sortable': True},
-        {'name': 'is_relevant', 'label': 'Relevant? (LLM)', 'field':'is_relevant'},
-        {'name': 'gold_standard', 'label': 'Relevant? (Human)', 'field':'gold_standard'}
-    ]
+        self.cb_article_relevant = ui.checkbox(
+            text="Article relevant to query",
+            value=False
+        )
+        ui.label("Why is/isn't the article relevant?").classes("text-2xl")
+        self.ta_article_eval = ui.textarea(
+            placeholder="Write explanation here."
+        )
 
-# lay out components
-def handle_result_selection(e: events.TableSelectionEventArguments):
-    row_data = e.selection[0]
-    label_title.set_text(row_data['title'])
-    label_abstract.set_text(row_data['abstract'])
-    label_query.set_text(row_data['query'])
-    label_llm_eval.set_text(row_data['evaluation'])
+    async def handle_upload(self, e: events.UploadEventArguments):
+        """
+        Uploads an agent result file and loads the data into the table.
 
-# table showing the articles in this evaluation run
-table_results_data = ui.table(
-    rows=[], 
-    columns=columns,
-    selection='single', 
-    row_key='pubmed_id',
-    pagination=3,
-    on_select=handle_result_selection,
-)
+        Args:
+            e: The file upload event.
+        """
+        # Read the result file
+        try:
+            self.agent_results = LitMonitorState.model_validate_json(await e.file.text())
+        except Exception as e:
+            print(f"Error reading evaluation file: {e}")
+            sys.exit(1)
 
-label_title = ui.label("Title").classes("text-3xl")
-label_abstract = ui.label().classes("text-base")
-# the criteria for article relevance
-ui.label("Relevance criteria:").classes("text-2xl")
-label_query = ui.label().classes("text-base")
-# what the LLM thought about the article
-ui.label("LLM evaluation:").classes("text-2xl")
-label_llm_eval = ui.label().classes("text-base")
+        result_rows = []
+        index = 0
+        for article in self.agent_results.new_articles:
+            row_data = {
+                "index": index,
+                "pubmed_id": article.pubmed_id,
+                "date": article.date,
+                "title": article.title,
+                "source": article.source,
+                "is_relevant": article.is_relevant,
+                "abstract": article.abstract,
+                "query": self.agent_results.topic_description,
+                "evaluation": article.evaluation
+            }
+            result_rows.append(row_data)
+            index += 1
+        self.table_results_data.rows = result_rows
+    
+    def handle_result_selection(self, e: events.TableSelectionEventArguments):
+        row_data = e.selection[0]
+        # set current article
+        self.current_article = self.agent_results.new_articles[row_data['index']]
 
-ui.label("Was LLM right or wrong? Why?").classes("text-2xl")
-ta_error_disc = ui.textarea(
-    placeholder="Write your explanation here.",
-)
+        self.label_title.set_text(row_data['title'])
+        self.label_abstract.set_text(row_data['abstract'])
+        self.label_query.set_text(row_data['query'])
+        self.cb_article_relevant.set_value(row_data['is_relevant'])
+        self.ta_article_eval.set_value(row_data['evaluation'])
 
-ui.run(host='127.0.0.1', port=9090, title="Lit Monitor Evaluator")
+# wrapper function so every user session gets its own UI object
+async def main():
+    EvalGUI()
+
+if __name__ in {"__main__", "__mp_main__"}:
+    ui.run(root=main, host='127.0.0.1', port=9090, title="Lit Monitor Evaluator",
+        binding_refresh_interval=0.2, reconnect_timeout=10
+    )
