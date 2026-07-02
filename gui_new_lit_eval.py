@@ -26,8 +26,8 @@ class EvalGUI:
     """Text area showing the article relevance evaluation."""
 
     def __init__(self):
-        self.agent_results = None
-        self.current_article = None
+        self.agent_results: LitMonitorState = None
+        self.current_article: Article = None
 
         # initialize GUI
 
@@ -70,11 +70,13 @@ class EvalGUI:
 
         self.cb_article_relevant = ui.checkbox(
             text="Article relevant to query",
-            value=False
+            value=False,
+            on_change=self.handle_result_update
         )
         ui.label("Why is/isn't the article relevant?").classes("text-2xl")
         self.ta_article_eval = ui.textarea(
-            placeholder="Write explanation here."
+            placeholder="Write explanation here.",
+            on_change=self.handle_result_update
         ).classes("text-base w-7/8")
 
     async def handle_upload(self, e: events.UploadEventArguments):
@@ -119,6 +121,12 @@ class EvalGUI:
         self.label_query.set_text(row_data['query'])
         self.cb_article_relevant.set_value(row_data['is_relevant'])
         self.ta_article_eval.set_value(row_data['evaluation'])
+    
+    def handle_result_update(self):
+        """Called when result relevance or evaluation is updated."""
+        self.current_article.is_relevant = self.cb_article_relevant.value
+        self.current_article.evaluation = self.ta_article_eval.value
+        print(self.agent_results.model_dump_json(indent=2))
 
 # wrapper function so every user session gets its own UI object
 async def main():
