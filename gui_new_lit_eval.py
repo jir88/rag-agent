@@ -35,16 +35,19 @@ class EvalGUI:
         dark = ui.dark_mode(value=True)
         ui.switch('Dark mode').bind_value(dark)
 
-        # file uploader to select the evaluation results we want to look at
-        eval_result_uploader = ui.upload(
-            on_upload=self.handle_upload,
-            max_file_size=10e6,
-            multiple=False,
-            max_files=1,
-            auto_upload=True,
-            label="Upload evaluation results:"
-        )
-        eval_result_uploader.props('accept=.json')
+        with ui.row():
+            # file uploader to select the evaluation results we want to look at
+            eval_result_uploader = ui.upload(
+                on_upload=self.handle_upload,
+                max_file_size=10e6,
+                multiple=False,
+                max_files=1,
+                auto_upload=True,
+                label="Upload evaluation results:"
+            )
+            eval_result_uploader.props('accept=.json')
+
+            ui.button(text="Save", icon='save', on_click=self.handle_save)
 
         # table showing the articles in this evaluation run
         columns = [
@@ -118,6 +121,9 @@ class EvalGUI:
             index += 1
         self.table_results_data.rows = result_rows
     
+    def handle_save(self):
+        pass
+
     def handle_result_selection(self, e: events.TableSelectionEventArguments):
         # if selection is empty, clear the data
         if len(e.selection) == 0:
