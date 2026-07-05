@@ -112,6 +112,15 @@ class EvalGUI:
         self.table_results_data.rows = result_rows
     
     def handle_result_selection(self, e: events.TableSelectionEventArguments):
+        # if selection is empty, clear the data
+        if len(e.selection) == 0:
+            self.current_article = None
+            self.label_title.set_text("Title")
+            self.label_abstract.set_text("Abstract")
+            self.label_query.set_text("Query")
+            self.cb_article_relevant.set_value(False)
+            self.ta_article_eval.set_value("")
+            return
         row_data = e.selection[0]
         # set current article
         self.current_article = self.agent_results.new_articles[row_data['index']]
@@ -124,6 +133,9 @@ class EvalGUI:
     
     def handle_result_update(self):
         """Called when result relevance or evaluation is updated."""
+        # if nothing selected, skip
+        if self.current_article is None:
+            return
         self.current_article.is_relevant = self.cb_article_relevant.value
         self.current_article.evaluation = self.ta_article_eval.value
         print(self.agent_results.model_dump_json(indent=2))
