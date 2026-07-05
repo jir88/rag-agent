@@ -122,7 +122,16 @@ class EvalGUI:
         self.table_results_data.rows = result_rows
     
     def handle_save(self):
-        pass
+        """Save the monitor results to a JSON file."""
+        if self.agent_results is None:
+            return
+        output_file_txt = self.agent_results.model_dump_json(indent=2)
+        # show save dialog
+        ui.download.content(
+            content=output_file_txt,
+            filename="monitor_results.json",
+            media_type="application/json"
+        )
 
     def handle_result_selection(self, e: events.TableSelectionEventArguments):
         # if selection is empty, clear the data
