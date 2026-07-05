@@ -90,8 +90,15 @@ class EvalGUI:
         try:
             self.agent_results = LitMonitorState.model_validate_json(await e.file.text())
         except Exception as e:
-            print(f"Error reading evaluation file: {e}")
+            ui.notify(
+                message=f"Error reading evaluation file: {e}",
+                type='warning',
+                multi_line=True
+            )
             sys.exit(1)
+        
+        # clear the upload widget
+        e.sender.reset()
 
         result_rows = []
         index = 0
