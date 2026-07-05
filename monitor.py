@@ -49,3 +49,19 @@ class LitMonitorState(BaseModel):
         default=25,
         description="The maximum number of search results to evaluate."
     )
+
+    def get_article_with_pubmed_id(self, pmid:int) -> Article:
+        """
+        Get an article object with a given PubMed ID.
+
+        Args:
+            pmid (int): The PubMed ID to search for.
+        
+        Returns:
+            The article, or None if no matching article was found.
+        """
+        for article in self.new_articles:
+            if article.pubmed_id == pmid:
+                return article
+        # return none if not found
+        return None
