@@ -50,7 +50,7 @@ class EvalGUI:
         columns = [
             {'name': 'title', 'label': 'Title', 'field': 'title', 'required': True, 'align': 'left'},
             {'name': 'date', 'label': 'Published', 'field': 'date', 'sortable': True},
-            {'name': 'is_relevant', 'label': 'Relevant?', 'field':'is_relevant'}
+            {'name': 'is_relevant', 'label': 'Relevant?', 'field':'is_relevant', 'sortable': True}
         ]
         self.table_results_data = ui.table(
             rows=[], 
