@@ -35,8 +35,39 @@ class LitMonitorState(BaseModel):
     )
     base_url: str = Field(description="URL where inference client is located.")
     sampling_params: Dict[str, Any] = Field(description="OpenAI-style dict of sampling parameters for the LLM.")
+
+    agent_system_prompt: str = Field(
+        description=(
+            "The LLM system prompt that sets up the article evaluation scenario for the LLM. ",
+            "Must include f-string style slot for {topic}."
+        ),
+        default=(
+            "You are a university professor. You are checking PubMed for any new publications relevant to "
+            "your research. You don't have much time, so you focus on finding the most relevant papers to "
+            "download and read. Your research topic is:\n\n"
+            "{topic}"
+        )
+    )
+    article_relevance_prompt: str = Field(
+        description=(
+            "The skeleton prompt into which the article data is injected. Should end by prompting the ",
+            "LLM to evaluate the article relevance and output either ##YES## or ##NO## in response. ",
+            "Must include f-string style slots for {title}, {date}, and {abstract}."
+        ),
+        default=(
+            "Please decide whether the following article is relevant to your research topic.\n\n"
+            "Title: {title}\n"
+            "Publication date: {date}\n"
+            "Abstract: {abstract}\n\n"
+            "Is this article relevant? In a single sentence, briefly explain why this article is "
+            "relevant or irrelevant to your research topic. Be skeptical. Finally, if the article is "
+            "relevant, write ##YES##. If it is irrelevant, write ##NO##. Be sure to end your response "
+            "with either ##YES## or ##NO##."
+        )
+    )
     topic_description: str = Field(description="A description of the topic the user is interested in.")
     search_terms: str = Field(description="The PubMed search terms being monitored")
+
     prior_pmids: List[str] = Field(
         default=[],
         description="A list of the PMIDs we have seen before."

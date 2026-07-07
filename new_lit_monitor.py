@@ -67,36 +67,19 @@ def eval_all_papers(state:LitMonitorState) -> LitMonitorState:
     """
     Evaluate all the new papers for relevance.
     """
-    system_prompt = (
-        "You are a university professor. You are checking PubMed for any new publications relevant to "
-        "your research. You don't have much time, so you focus on finding the most relevant papers to "
-        "download and read. Your research topic is:\n\n"
-        "{topic}"
-    )
-    article_relevance_prompt = (
-        "Please decide whether the following article is relevant to your research topic.\n\n"
-        "Title: {title}\n"
-        "Publication date: {date}\n"
-        "Abstract: {abstract}\n\n"
-        "Is this article relevant? In a single sentence, briefly explain why this article is "
-        "relevant or irrelevant to your research topic. Be skeptical. Finally, if the article is "
-        "relevant, write ##YES##. If it is irrelevant, write ##NO##. Be sure to end your response "
-        "with either ##YES## or ##NO##."
-    )
-
     new_articles = state.new_articles
     for article in new_articles:
         # make conversation
         relevance_msgs = [
             {
                 'role': 'system',
-                'content': system_prompt.format(
+                'content': state.agent_system_prompt.format(
                     topic=state.topic_description
                 )
             },
             {
                 'role': 'user',
-                'content': article_relevance_prompt.format(
+                'content': state.article_relevance_prompt.format(
                     title=article.title,
                     date=article.date,
                     abstract=article.abstract
@@ -180,13 +163,22 @@ class LitMonitor:
         self._initialize_agent_graph()
     
     def check_search(
-        self, topic_description:str, search_terms:str, max_results:int=25,
+        self, 
+        system_prompt:str, article_relevance_prompt:str,
+        topic_description:str, search_terms:str,
+        max_results:int=25,
         prior_pmids:List[str] = []
         ) -> LitMonitorState:
         """
         Run the monitor agent for a given topic and search term.
 
         Args:
+            system_prompt (str): The LLM system prompt that sets up the article evaluation 
+                scenario for the LLM. Must include f-string style slot for {topic}.
+            article_relevance_prompt (str): The skeleton prompt into which the article data 
+                is injected. Should end by prompting the LLM to evaluate the article relevance 
+                and output either ##YES## or ##NO## in response. Must include f-string style 
+                slots for {title}, {date}, and {abstract}.
             topic_description (str): Description of the research topic to help the agent 
                 decide whether articles are relevant.
             search_terms (str): The search to use in PubMed search syntax.
@@ -318,6 +310,8 @@ def main():
     
     print(f"Running agent with query:\n\n{input_settings.topic_description}\n\nSearch term :{input_settings.search_terms}\n\n")
     result = agent.check_search(
+        system_prompt=input_settings.agent_system_prompt,
+        article_relevance_prompt=input_settings.article_relevance_prompt,
         topic_description=input_settings.topic_description, 
         search_terms=input_settings.search_terms,
         max_results=input_settings.num_pubmed_results,
