@@ -195,6 +195,8 @@ class LitMonitor:
             'api_key': self.api_key,
             'base_url': self.base_url,
             'sampling_params': self.sampling_params,
+            'agent_system_prompt': system_prompt,
+            'article_relevance_prompt': article_relevance_prompt,
             'topic_description': topic_description,
             'search_terms': search_terms,
             'prior_pmids': prior_pmids,
