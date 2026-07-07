@@ -55,13 +55,20 @@ class EvalLitMonitor:
     # run agent
     # profit
     def evaluate_on_articles(
-        self, topic_description:str,
+        self,
+        system_prompt:str, article_relevance_prompt:str, topic_description:str,
         article_list:List[Article] = []
         ):
         """
         Run the monitor agent for a given topic and search term.
 
         Args:
+            system_prompt (str): The LLM system prompt that sets up the article evaluation 
+                scenario for the LLM. Must include f-string style slot for {topic}.
+            article_relevance_prompt (str): The skeleton prompt into which the article data 
+                is injected. Should end by prompting the LLM to evaluate the article relevance 
+                and output either ##YES## or ##NO## in response. Must include f-string style 
+                slots for {title}, {date}, and {abstract}.
             topic_description (str): Description of the research topic to help the agent 
                 decide whether articles are relevant.
             article_list (List[Dict[str, Any]]): A list of the articles we want to evaluate
@@ -77,6 +84,8 @@ class EvalLitMonitor:
             'api_key': self.api_key,
             'base_url': self.base_url,
             'sampling_params': self.sampling_params,
+            'agent_system_prompt': system_prompt,
+            'article_relevance_prompt': article_relevance_prompt,
             'topic_description': topic_description,
             'search_terms': "",
             'article_evaluations': [],
@@ -180,6 +189,8 @@ def main():
 
         # feed it to the eval monitor
         result = agent.evaluate_on_articles(
+            system_prompt=validation_settings.agent_system_prompt,
+            article_relevance_prompt=validation_settings.article_relevance_prompt,
             topic_description=validation_settings.topic_description,
             article_list=validation_settings.new_articles
         )
