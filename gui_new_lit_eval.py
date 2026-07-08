@@ -12,6 +12,11 @@ class EvalGUI:
     """Currently selected article, if any."""
 
     # GUI elements
+    ta_system_prompt: elements.textarea.Textarea
+    """Text area showing the system prompt used by the agent."""
+    ta_relevance_prompt: elements.textarea.Textarea
+    """Text area showing the format used to present articles for evaluation."""
+
     table_results_data: elements.table.Table
     """Table showing articles in the current result."""
     label_title: elements.label.Label
@@ -48,6 +53,20 @@ class EvalGUI:
             eval_result_uploader.props('accept=.json')
 
             ui.button(text="Save", icon='save', on_click=self.handle_save)
+        
+        # common settings for all articles
+
+        ui.label("System prompt:").classes("text-2xl")
+        self.ta_system_prompt = ui.textarea(
+            placeholder="Agent's system prompt.",
+            on_change=self.handle_result_update
+        ).classes("text-base w-7/8")
+
+        ui.label("Article relevance prompt:").classes("text-2xl")
+        self.ta_relevance_prompt = ui.textarea(
+            placeholder="Prompt used to present articles for evaluation.",
+            on_change=self.handle_result_update
+        ).classes("text-base w-7/8")
 
         # table showing the articles in this evaluation run
         columns = [
@@ -63,6 +82,8 @@ class EvalGUI:
             pagination=3,
             on_select=self.handle_result_selection,
         ).classes("w-7/8")
+
+        # information about an individual article
 
         self.label_title = ui.label("Title").classes("text-3xl w-7/8")
         self.label_abstract = ui.label().classes("text-base w-7/8")
@@ -103,6 +124,11 @@ class EvalGUI:
         # clear the upload widget
         e.sender.reset()
 
+        # load prompts
+        self.ta_system_prompt.value = self.agent_results.agent_system_prompt
+        self.ta_relevance_prompt.value = self.agent_results.article_relevance_prompt
+        
+        # populate the table
         result_rows = []
         index = 0
         for article in self.agent_results.new_articles:
@@ -161,6 +187,11 @@ class EvalGUI:
         self.current_article.is_relevant = self.cb_article_relevant.value
         self.current_article.evaluation = self.ta_article_eval.value
         print(self.agent_results.model_dump_json(indent=2))
+    
+    def handle_prompt_update(self):
+        """Called when one of the agent prompts is updated."""
+        self.agent_results.agent_system_prompt = self.ta_system_prompt.value
+        self.agent_results.article_relevance_prompt = self.ta_relevance_prompt.value
 
 # wrapper function so every user session gets its own UI object
 async def main():
