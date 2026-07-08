@@ -59,13 +59,13 @@ class EvalGUI:
         ui.label("System prompt:").classes("text-2xl")
         self.ta_system_prompt = ui.textarea(
             placeholder="Agent's system prompt.",
-            on_change=self.handle_result_update
+            on_change=self.handle_prompt_update
         ).classes("text-base w-7/8")
 
         ui.label("Article relevance prompt:").classes("text-2xl")
         self.ta_relevance_prompt = ui.textarea(
             placeholder="Prompt used to present articles for evaluation.",
-            on_change=self.handle_result_update
+            on_change=self.handle_prompt_update
         ).classes("text-base w-7/8")
 
         # table showing the articles in this evaluation run
