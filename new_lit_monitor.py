@@ -277,12 +277,6 @@ def main():
         print(f"Error reading topic file: {e}")
         sys.exit(1)
 
-    # model="huggingface/Qwen/Qwen2.5-Coder-32B-Instruct"
-    # model="openai/gemma-3n-E4B-it-UD-Q5_K_XL-cpu"
-    # model="openai/granite-4.0-h-tiny-UD-Q5_K_XL-cpu"
-    # model="openai/gemma-3-4B-it-UD-Q4_K_XL-cpu"
-    # base_url="http://127.0.0.1:8080/v1"
-
     # get API key, if provided
     if args.key is not None:
         print("Custom key provided!")
@@ -333,38 +327,6 @@ def main():
     # save whole result dict
     with open(output_file_name, mode='w') as fp:
         fp.write(result.model_dump_json(indent=2, ensure_ascii=True))
-    # we can convert the article values straight into a DataFrame and write it to CSV for evals
-    # new_articles = result.new_articles
-    # df = pd.DataFrame(new_articles)
-    # # add LLM metadata
-    # df['model'] = agent.llm
-    # df['base_url'] = agent.base_url
-    # df.to_csv("results/monitor_article_data_" + timestamp + ".csv")
-    print(result.model_dump_json(indent=2))
-    # # run agent on each query/search term pair in the configuration file
-    # for row in topic_data.itertuples():
-    #     # TODO: Have the agent invoke the monitor for each topic
-    #     print(f"Running agent with query:\n\n{row.query}\n\nSearch term:{row.search_term}\n\n")
-    #     result = agent.check_search(
-    #         topic_description=row.query, 
-    #         search_terms=row.search_term,
-    #         max_results=25
-    #     )
-
-    #     # put timestamp on outputs
-    #     timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    #     # save whole result dict
-    #     with open("results/output_monitor_state_" + timestamp + ".json", mode='w') as fp:
-    #         fp.write(result.model_dump_json(indent=2, ensure_ascii=True))
-    #     # we can convert the article values straight into a DataFrame and write it to CSV for evals
-    #     new_articles = result.new_articles
-    #     df = pd.DataFrame(new_articles)
-    #     # add LLM metadata
-    #     df['model'] = model
-    #     df['base_url'] = base_url
-    #     df.to_csv("results/monitor_article_data_" + timestamp + ".csv")
-    #     print(result.model_dump_json(indent=2))
-
 
 if __name__ == "__main__":
     main()
