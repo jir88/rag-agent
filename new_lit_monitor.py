@@ -314,6 +314,12 @@ def main():
         prior_pmids=prior_pmids
     )
 
+    # if we're updating, add the new articles to the existing ones
+    if args.update:
+        updated_list = input_settings.new_articles.extend(result.new_articles)
+        result.new_articles = updated_list
+        result.prior_pmids = input_settings.prior_pmids
+
     # if output file is specified, use that
     if args.output is not None:
         output_file_name = args.output
