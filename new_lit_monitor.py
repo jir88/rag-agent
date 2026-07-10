@@ -309,9 +309,9 @@ def main():
         # use the file we're updating
         output_file_name = input_path
     else:
-        # put timestamp on generic output file name
+        # put timestamp on input file name
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        output_file_name = "results/output_monitor_state_" + timestamp + ".json"
+        output_file_name = input_path.parent.joinpath(input_path.stem + "_" + timestamp + ".json")
     # save whole result dict
     with open(output_file_name, mode='w') as fp:
         fp.write(result.model_dump_json(indent=2, ensure_ascii=True))
