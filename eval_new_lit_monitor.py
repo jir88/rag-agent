@@ -9,14 +9,6 @@ from langgraph.graph import StateGraph, START, END
 
 from monitor import Article,LitMonitorState
 
-from opentelemetry import trace
-from opentelemetry import trace as trace_api  # SDK for creating traces
-
-# grab the actual tracer being used
-tracer = trace.get_tracer(__name__)
-
-# TODO: set up evaluation agent using subset of steps, skipping the initial PubMed search
-
 class EvalLitMonitor:
     """
     Workflow powered by LiteLLM that evaluates LitMonitor agent performance by testing against
@@ -92,13 +84,11 @@ class EvalLitMonitor:
             'new_articles': article_list,
             'num_pubmed_results': -1
         }
-        with tracer.start_as_current_span("Invoke ResearchAgent") as session_span:
-            final_result = self.agent_graph.invoke(
-                input=state,
-                config={ "recursion_limit": 100 }
-            )
-            output_model = LitMonitorState(**final_result)
-            session_span.set_status(trace_api.Status(trace_api.StatusCode.OK))
+        final_result = self.agent_graph.invoke(
+            input=state,
+            config={ "recursion_limit": 100 }
+        )
+        output_model = LitMonitorState(**final_result)
         print("Agent finished!")
         return output_model
 

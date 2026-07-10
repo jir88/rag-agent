@@ -12,22 +12,6 @@ from langgraph.types import Command
 from monitor import Article,LitMonitorState
 from tools import PubmedSearchTool
 
-from phoenix.otel import register
-from opentelemetry import trace
-from opentelemetry import trace as trace_api  # SDK for creating traces
-
-# set up Arize Phoenix tracing
-# session = px.launch_app()
-endpoint = "http://127.0.0.1:6006/v1/traces"
-tracer_provider = register(
-    project_name="researcher-agent",  # Default is 'default'
-    auto_instrument=True,  # Auto-instrument your app based on installed OI dependencies
-    endpoint=endpoint,
-    batch=True,
-)
-# now that we've set up a provider, grab the actual tracer being used
-tracer = trace.get_tracer(__name__)
-
 def do_search(state: LitMonitorState) -> Command[Literal["eval_all_papers", "collate_evals"]]:
     """
     Do the PubMed search and grab metadata for any articles we haven't seen before.
@@ -203,13 +187,11 @@ class LitMonitor:
             'article_evaluations': [],
             'num_pubmed_results': max_results
         }
-        with tracer.start_as_current_span("Invoke ResearchAgent") as session_span:
-            final_result = self.agent_graph.invoke(
-                input=state,
-                config={ "recursion_limit": 100 }
-            )
-            output_model = LitMonitorState(**final_result)
-            session_span.set_status(trace_api.Status(trace_api.StatusCode.OK))
+        final_result = self.agent_graph.invoke(
+            input=state,
+            config={ "recursion_limit": 100 }
+        )
+        output_model = LitMonitorState(**final_result)
         print("Agent finished!")
         return output_model
 
