@@ -113,7 +113,9 @@ class PubmedSearchTool(Tool):
         response = requests.get(esearch_url, params=esearch_params)
         response.raise_for_status()
         search_data = response.json()
-        
+        # if 'esearchresult' has key "ERROR", raise an error
+        if "ERROR" in search_data["esearchresult"].keys():
+            raise RuntimeError("PubMed API error: " + search_data["esearchresult"]["ERROR"])
         webenv = search_data["esearchresult"]["webenv"]
         query_key = search_data["esearchresult"]["querykey"]
         ids = search_data["esearchresult"]["idlist"]
