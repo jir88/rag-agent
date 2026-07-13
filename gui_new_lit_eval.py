@@ -186,6 +186,21 @@ class EvalGUI:
             return
         self.current_article.is_relevant = self.cb_article_relevant.value
         self.current_article.evaluation = self.ta_article_eval.value
+        # TODO: update the table too!
+        # search for article pmid in table to get index
+        row = None
+        for r in self.table_results_data.rows:
+            if r['pubmed_id'] == self.current_article.pubmed_id:
+                row = r
+                break
+        if row is None:
+            print("Warning! Article not found!")
+            return
+        # pull row
+        row['is_relevant'] = self.current_article.is_relevant
+        row['evaluation'] = self.current_article.evaluation
+        # change the data
+        self.table_results_data.update()
         print(self.agent_results.model_dump_json(indent=2))
     
     def handle_prompt_update(self):
