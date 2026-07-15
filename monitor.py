@@ -1,3 +1,4 @@
+from openai import OpenAI
 from pydantic import BaseModel,Field
 from typing import Any,Dict,List
 
@@ -27,7 +28,7 @@ class Article(BaseModel):
     )
 
 class LitMonitorState(BaseModel):
-    llm: str = Field(description="The LiteLLM path to the inference client we're using to talk to an LLM.")
+    llm: str = Field(description="The name of the LLM being used.")
     api_key : str = Field(
         description="Optional API key for inference client.",
         default="sk-placeholder",
@@ -35,6 +36,10 @@ class LitMonitorState(BaseModel):
     )
     base_url: str = Field(description="URL where inference client is located.")
     sampling_params: Dict[str, Any] = Field(description="OpenAI-style dict of sampling parameters for the LLM.")
+    client: OpenAI = Field(
+        description="OpenAI client object for interfacing with LLM. Created at runtime.",
+        exclude=True
+    )
 
     agent_system_prompt: str = Field(
         description=(

@@ -3,9 +3,9 @@ import sys
 import datetime
 # import pandas as pd
 
+from openai import OpenAI
 from pathlib import Path
 from typing import List, Literal
-from litellm import completion
 from langgraph.graph import StateGraph, START, END
 from langgraph.types import Command
 
@@ -76,22 +76,22 @@ def eval_all_papers(state:LitMonitorState) -> LitMonitorState:
         is_relevant = None
 
         while attempts < max_attempts:
-            response = completion(
+            response = state.client.chat.completions.create(
                 model=state.llm,
-                api_key=state.api_key,
-                base_url=state.base_url,
                 messages=relevance_msgs,
                 stream=False,
-                max_tokens=512,
-                extra_headers=state.sampling_params
+                # shove all sampling parameters through this mechanism to avoid manually
+                # specifying the canonical OpenAI ones
+                extra_body=state.sampling_params
             )
-            rel_response = response['choices'][0]['message']
-            print(rel_response['content'])
+            rel_response = response.choices[0].message.content
+            print(rel_response)
+
             # determine if LLM flags as relevant or not
-            if "YES" in rel_response['content']:
+            if "YES" in rel_response:
                 is_relevant = True
                 attempts = max_attempts # end loop
-            elif "NO" in rel_response['content']:
+            elif "NO" in rel_response:
                 is_relevant = False
                 attempts = max_attempts # end loop
             else:
@@ -99,7 +99,7 @@ def eval_all_papers(state:LitMonitorState) -> LitMonitorState:
                 attempts += 1
 
         # record evaluation, relevance flag will be None if we failed
-        article.evaluation = rel_response['content']
+        article.evaluation = rel_response
         article.is_relevant = is_relevant
     
     # update state with article list, now with relevance added
@@ -143,6 +143,14 @@ class LitMonitor:
                 "top_p": "0.95"
             }
 
+        # create OpenAI API client
+        self.client = OpenAI(
+            api_key=self.api_key,
+            base_url=self.base_url,
+            timeout=1200,
+            max_retries=10
+        )
+
         # build the agent graph
         self._initialize_agent_graph()
     
@@ -179,6 +187,7 @@ class LitMonitor:
             'api_key': self.api_key,
             'base_url': self.base_url,
             'sampling_params': self.sampling_params,
+            'client': self.client,
             'agent_system_prompt': system_prompt,
             'article_relevance_prompt': article_relevance_prompt,
             'topic_description': topic_description,
