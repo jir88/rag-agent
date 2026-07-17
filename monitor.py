@@ -1,5 +1,5 @@
 from openai import OpenAI
-from pydantic import BaseModel,Field
+from pydantic import BaseModel,Field,ConfigDict
 from typing import Any,Dict,List
 
 class Article(BaseModel):
@@ -28,6 +28,8 @@ class Article(BaseModel):
     )
 
 class LitMonitorState(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed = True)
+
     llm: str = Field(description="The name of the LLM being used.")
     api_key : str = Field(
         description="Optional API key for inference client.",
