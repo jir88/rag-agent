@@ -40,6 +40,7 @@ class LitMonitorState(BaseModel):
     sampling_params: Dict[str, Any] = Field(description="OpenAI-style dict of sampling parameters for the LLM.")
     client: OpenAI = Field(
         description="OpenAI client object for interfacing with LLM. Created at runtime.",
+        default=None,
         exclude=True
     )
 
