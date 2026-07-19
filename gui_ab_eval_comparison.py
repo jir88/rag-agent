@@ -312,14 +312,16 @@ class ABEvalGUI:
         """
         # Read the result file
         try:
-            self.ref_agent_results = LitMonitorState.model_validate_json(await e.file.text())
+            text = await e.file.text()
+            self.ref_agent_results = LitMonitorState.model_validate_json(json_data=text)
         except Exception as e:
             ui.notify(
-                message=f"Error reading evaluation file: {e}",
+                message=f"Error reading reference file:\n{e}",
                 type='warning',
                 multi_line=True
             )
-            sys.exit(1)
+            print(f"Error reading reference file:\n{e}")
+            return
         
         # clear the upload widget
         e.sender.reset()
@@ -417,14 +419,16 @@ class ABEvalGUI:
         """
         # Read the result file
         try:
-            self.condA_agent_results = LitMonitorState.model_validate_json(await e.file.text())
+            text = await e.file.text()
+            self.condA_agent_results = LitMonitorState.model_validate_json(json_data=text)
         except Exception as e:
             ui.notify(
-                message=f"Error reading evaluation file: {e}",
+                message=f"Error reading condition A file:\n{e}",
                 type='warning',
                 multi_line=True
             )
-            sys.exit(1)
+            print(f"Error reading condition A file:\n{e}")
+            return
         
         # clear the upload widget
         e.sender.reset()
@@ -522,14 +526,16 @@ class ABEvalGUI:
         """
         # Read the result file
         try:
-            self.condB_agent_results = LitMonitorState.model_validate_json(await e.file.text())
+            text = await e.file.text()
+            self.condB_agent_results = LitMonitorState.model_validate_json(json_data=text)
         except Exception as e:
             ui.notify(
-                message=f"Error reading evaluation file: {e}",
+                message=f"Error reading condition B file:\n{e}",
                 type='warning',
                 multi_line=True
             )
-            sys.exit(1)
+            print(f"Error reading condition B file:\n{e}")
+            return
         
         # clear the upload widget
         e.sender.reset()
