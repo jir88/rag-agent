@@ -300,6 +300,12 @@ class ABEvalGUI:
                     placeholder="Write explanation here.",
                     on_change=self.handle_condB_result_update
                 ).classes("text-base w-7/8")
+
+            # ------ COMPARISON TAB -------------
+
+            comp_panel = ui.tab_panel(tab_comparison)
+            with comp_panel:
+                ui.label("Compare conditions")
     
     # ============ REFERENCE TAB EVENT HANDLERS ================
 
