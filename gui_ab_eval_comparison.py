@@ -1,6 +1,6 @@
 from nicegui import ui, events, elements
 
-import sys
+import numpy as np
 
 from monitor import Article,LitMonitorState
 
@@ -10,7 +10,7 @@ class ABEvalGUI:
     """
 
     # ===== Reference Results =============
-    ref_agent_results: LitMonitorState
+    ref_agent_results: LitMonitorState = None
     ref_current_article: Article
     """Currently selected article, if any."""
 
@@ -34,11 +34,16 @@ class ABEvalGUI:
     """Text area showing the article relevance evaluation."""
 
     # ===== Condition A Results =============
-    condA_agent_results: LitMonitorState
+    condA_agent_results: LitMonitorState = None
     condA_current_article: Article
     """Currently selected article, if any."""
 
     # GUI elements
+    condA_table_conf_mat: elements.table.Table
+    """Table displaying confusion matrix for condition A."""
+    condA_label_accuracy: elements.label.Label
+    condA_label_ppv: elements.label.Label
+    condA_label_npv: elements.label.Label
     condA_ta_system_prompt: elements.textarea.Textarea
     """Text area showing the system prompt used by the agent."""
     condA_ta_relevance_prompt: elements.textarea.Textarea
@@ -58,11 +63,16 @@ class ABEvalGUI:
     """Text area showing the article relevance evaluation."""
 
     # ===== Condition B Results =============
-    condB_agent_results: LitMonitorState
+    condB_agent_results: LitMonitorState = None
     condB_current_article: Article
     """Currently selected article, if any."""
 
     # GUI elements
+    condB_table_conf_mat: elements.table.Table
+    """Table displaying confusion matrix for condition B."""
+    condB_label_accuracy: elements.label.Label
+    condB_label_ppv: elements.label.Label
+    condB_label_npv: elements.label.Label
     condB_ta_system_prompt: elements.textarea.Textarea
     """Text area showing the system prompt used by the agent."""
     condB_ta_relevance_prompt: elements.textarea.Textarea
@@ -185,6 +195,28 @@ class ABEvalGUI:
 
                     ui.button(text="Save", icon='save', on_click=self.handle_condA_save)
                 
+                # display summary statistics about the results
+
+                with ui.row():
+                    # confusion matrix
+                    columns = [
+                        {'name': 'row_label', 'label': 'True relevance', 'field': 'row_label'},
+                        {'name': 'negative', 'label': 'Pred. irrelevant', 'field': 'negative'},
+                        {'name': 'positive', 'label': 'Pred. relevant', 'field': 'positive'},
+                    ]
+                    # placeholder data
+                    rows = [
+                        {'row_label': 'Irrelevant', 'positive': 0, 'negative': 0},
+                        {'row_label': 'Relevant', 'positive': 0, 'negative': 0},
+                    ]
+                    self.condA_table_conf_mat = ui.table(rows=rows, columns=columns, row_key='row_label')
+
+                    # miscellaneous stats
+                    with ui.column():
+                        self.condA_label_accuracy = ui.label("Accuracy:")
+                        self.condA_label_ppv = ui.label("PPV:")
+                        self.condA_label_npv = ui.label("NPV:")
+
                 # common settings for all articles
 
                 ui.label("System prompt:").classes("text-2xl")
@@ -251,6 +283,28 @@ class ABEvalGUI:
                     condB_eval_result_uploader.props('accept=.json')
 
                     ui.button(text="Save", icon='save', on_click=self.handle_condB_save)
+                
+                # display summary statistics about the results
+
+                with ui.row():
+                    # confusion matrix
+                    columns = [
+                        {'name': 'row_label', 'label': 'True relevance', 'field': 'row_label'},
+                        {'name': 'negative', 'label': 'Pred. irrelevant', 'field': 'negative'},
+                        {'name': 'positive', 'label': 'Pred. relevant', 'field': 'positive'},
+                    ]
+                    # placeholder data
+                    rows = [
+                        {'row_label': 'Irrelevant', 'positive': 0, 'negative': 0},
+                        {'row_label': 'Relevant', 'positive': 0, 'negative': 0},
+                    ]
+                    self.condB_table_conf_mat = ui.table(rows=rows, columns=columns, row_key='row_label')
+
+                    # miscellaneous stats
+                    with ui.column():
+                        self.condB_label_accuracy = ui.label("Accuracy:")
+                        self.condB_label_ppv = ui.label("PPV:")
+                        self.condB_label_npv = ui.label("NPV:")
                 
                 # common settings for all articles
 
@@ -354,6 +408,7 @@ class ABEvalGUI:
             result_rows.append(row_data)
             index += 1
         self.ref_table_results_data.rows = result_rows
+        self.update_all_comparisons()
 
     def handle_ref_save(self):
         """Save the monitor results to a JSON file."""
@@ -445,8 +500,22 @@ class ABEvalGUI:
         
         # populate the table
         result_rows = []
+        ref_matches = 0
         index = 0
         for article in self.condA_agent_results.new_articles:
+            if self.ref_agent_results is not None:
+                ref_article = self.ref_agent_results.get_article_with_pubmed_id(article.pubmed_id)
+            else:
+                ref_article = None
+            
+            if ref_article is not None:
+                ref_matches += 1
+                ref_relevant = ref_article.is_relevant
+                ref_eval = ref_article.evaluation
+            else:
+                ref_relevant = None
+                ref_eval = ""
+
             row_data = {
                 "index": index,
                 "pubmed_id": article.pubmed_id,
@@ -454,13 +523,16 @@ class ABEvalGUI:
                 "title": article.title,
                 "source": article.source,
                 "is_relevant": article.is_relevant,
+                "ref_is_relevant": ref_relevant,
                 "abstract": article.abstract,
                 "query": self.condA_agent_results.topic_description,
-                "evaluation": article.evaluation
+                "evaluation": article.evaluation,
+                "ref_evaluation": ref_eval
             }
             result_rows.append(row_data)
             index += 1
         self.condA_table_results_data.rows = result_rows
+        self.update_all_comparisons()
 
     def handle_condA_save(self):
         """Save the monitor results to a JSON file."""
@@ -568,6 +640,7 @@ class ABEvalGUI:
             result_rows.append(row_data)
             index += 1
         self.condB_table_results_data.rows = result_rows
+        self.update_all_comparisons()
 
     def handle_condB_save(self):
         """Save the monitor results to a JSON file."""
@@ -628,6 +701,146 @@ class ABEvalGUI:
         self.condB_agent_results.agent_system_prompt = self.condB_ta_system_prompt.value
         self.condB_agent_results.article_relevance_prompt = self.condB_ta_relevance_prompt.value
     
+    def update_all_comparisons(self):
+        """Checks to see if article lists match and updates comparison statistics."""
+        # compare reference and condition A
+        if self.ref_agent_results is not None and self.condA_agent_results is not None:
+            ref_matches = 0
+            rel_true = []
+            rel_condA = []
+            for article in self.condA_agent_results.new_articles:
+                ref_article = self.ref_agent_results.get_article_with_pubmed_id(article.pubmed_id)
+                if ref_article is not None:
+                    ref_matches += 1
+                    rel_true.append(ref_article.is_relevant)
+                    rel_condA.append(article.is_relevant)
+            if ref_matches < len(self.ref_agent_results.new_articles):
+                ui.notify(
+                    message="Not all reference articles present in condition A!",
+                    type='warning'
+                )
+
+            # update condition A statistics
+            
+            y_true = np.array(rel_true, dtype=np.bool)
+            y_pred = np.array(rel_condA, dtype=np.bool)
+            cm = self._confusion_matrix(
+                ref_data=y_true,
+                predicted_data=y_pred
+            )
+            self.condA_table_conf_mat.rows = [
+                {'row_label': 'Irrelevant', 'negative': cm[0, 0], 'positive': cm[0, 1]},
+                {'row_label': 'Relevant', 'negative': cm[1, 0], 'positive': cm[1, 1]},
+            ]
+
+            # calculate accuracy
+            pred_accuracy = np.sum(y_true == y_pred)/len(y_true)
+            self.condA_label_accuracy.text = f"Accuracy: {pred_accuracy:.1%}"
+            # calculate PPV
+            true_positives = np.sum((y_true == 1) & (y_pred == 1))
+            false_positives = np.sum((y_true == 0) & (y_pred == 1))
+            if (true_positives + false_positives) > 0:
+                ppv = true_positives/(true_positives + false_positives)
+            else:
+                ppv = 0.0
+            self.condA_label_ppv.text = f"PPV: {ppv:.1%}"
+            # calculate NPV
+            true_negatives = np.sum((y_true == 0) & (y_pred == 0))
+            false_negatives = np.sum((y_true == 1) & (y_pred == 0))
+            if (true_negatives + false_negatives) > 0:
+                npv = true_negatives/(true_negatives + false_negatives)
+            else:
+                npv = 0.0
+            self.condA_label_npv.text = f"NPV: {npv:.1%}"
+
+        # compare reference and condition B
+        if self.ref_agent_results is not None and self.condB_agent_results is not None:
+            ref_matches = 0
+            rel_true = []
+            rel_condB = []
+            for article in self.condB_agent_results.new_articles:
+                ref_article = self.ref_agent_results.get_article_with_pubmed_id(article.pubmed_id)
+                if ref_article is not None:
+                    ref_matches += 1
+                    rel_true.append(ref_article.is_relevant)
+                    rel_condB.append(article.is_relevant)
+            if ref_matches < len(self.ref_agent_results.new_articles):
+                ui.notify(
+                    message="Not all reference articles present in condition B!",
+                    type='warning'
+                )
+
+            # update condition B statistics
+            
+            y_true = np.array(rel_true, dtype=np.bool)
+            y_pred = np.array(rel_condB, dtype=np.bool)
+            cm = self._confusion_matrix(
+                ref_data=y_true,
+                predicted_data=y_pred
+            )
+            self.condB_table_conf_mat.rows = [
+                {'row_label': 'Irrelevant', 'negative': cm[0, 0], 'positive': cm[0, 1]},
+                {'row_label': 'Relevant', 'negative': cm[1, 0], 'positive': cm[1, 1]},
+            ]
+
+            # calculate accuracy
+            pred_accuracy = np.sum(y_true == y_pred)/len(y_true)
+            self.condB_label_accuracy.text = f"Accuracy: {pred_accuracy:.1%}"
+            # calculate PPV
+            true_positives = np.sum((y_true == 1) & (y_pred == 1))
+            false_positives = np.sum((y_true == 0) & (y_pred == 1))
+            if (true_positives + false_positives) > 0:
+                ppv = true_positives/(true_positives + false_positives)
+            else:
+                ppv = 0.0
+            self.condB_label_ppv.text = f"PPV: {ppv:.1%}"
+            # calculate NPV
+            true_negatives = np.sum((y_true == 0) & (y_pred == 0))
+            false_negatives = np.sum((y_true == 1) & (y_pred == 0))
+            if (true_negatives + false_negatives) > 0:
+                npv = true_negatives/(true_negatives + false_negatives)
+            else:
+                npv = 0.0
+            self.condB_label_npv.text = f"NPV: {npv:.1%}"
+
+        # compare condition A and condition B
+        if self.condA_agent_results is not None and self.condB_agent_results is not None:
+            ref_matches = 0
+            if len(self.condA_agent_results) != len(self.condB_agent_results):
+                ui.notify(
+                    message="Not all condition A articles present in condition B!",
+                    type='warning'
+                )
+            else: # check to see if they actually match
+                for article in self.condB_agent_results.new_articles:
+                    ref_article = self.condA_agent_results.get_article_with_pubmed_id(article.pubmed_id)
+                    if ref_article is not None:
+                        ref_matches += 1
+                if ref_matches < len(self.ref_agent_results.new_articles):
+                    ui.notify(
+                        message="Not all condition A articles present in condition B!",
+                        type='warning'
+                    )
+            # TODO: update comparison statistics here!
+    
+    def _confusion_matrix(self, ref_data, predicted_data) -> np.array:
+        if len(ref_data) != len(predicted_data):
+            raise ValueError("Can't call confusion_matrix with arrays of different lengths!")
+        conf_mat = np.zeros((2, 2), dtype=np.int_)
+
+        for i in range(len(ref_data)):
+            if ref_data[i]: # article is actually relevant
+                if predicted_data[i]:
+                    conf_mat[1,1] += 1
+                else:
+                    conf_mat[1, 0] += 1
+            else: # article actually irrelevant
+                if predicted_data[i]:
+                    conf_mat[0, 1] += 1
+                else:
+                    conf_mat[0, 0] += 1
+        return conf_mat
+
     async def handle_upload(e: events.UploadEventArguments):
         """
         Uploads evaluation data file and adds the data to the table.
@@ -652,36 +865,7 @@ class ABEvalGUI:
             result_rows.append(row_data)
         table_results_data.rows = result_rows
 
-        # calculate whole-dataset statistics
-        y_true = eval_results_data['gold_standard'].to_numpy(dtype=np.bool)
-        y_pred = eval_results_data['is_relevant'].to_numpy(dtype=np.bool)
-        cm = confusion_matrix(
-            y_true=y_true, y_pred=y_pred,
-        )
-        table_conf_mat.rows = [
-            {'row_label': 'Irrelevant', 'negative': cm[0, 0], 'positive': cm[0, 1]},
-            {'row_label': 'Relevant', 'negative': cm[1, 0], 'positive': cm[1, 1]},
-        ]
-
-        # calculate accuracy
-        pred_accuracy = np.sum(y_true == y_pred)/len(y_true)
-        label_accuracy.text = f"Accuracy: {pred_accuracy:.1%}"
-        # calculate PPV
-        true_positives = np.sum((y_true == 1) & (y_pred == 1))
-        false_positives = np.sum((y_true == 0) & (y_pred == 1))
-        if (true_positives + false_positives) > 0:
-            ppv = true_positives/(true_positives + false_positives)
-        else:
-            ppv = 0.0
-        label_ppv.text = f"PPV: {ppv:.1%}"
-        # calculate NPV
-        true_negatives = np.sum((y_true == 0) & (y_pred == 0))
-        false_negatives = np.sum((y_true == 1) & (y_pred == 0))
-        if (true_negatives + false_negatives) > 0:
-            npv = true_negatives/(true_negatives + false_negatives)
-        else:
-            npv = 0.0
-        label_npv.text = f"NPV: {npv:.1%}"
+        
 
 
     # calculate whole-dataset statistics
