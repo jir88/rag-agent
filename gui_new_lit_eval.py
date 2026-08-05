@@ -1,8 +1,10 @@
-from nicegui import ui, events, elements
-
 import sys
 
-from monitor import Article,LitMonitorState
+from nicegui import elements, events, ui
+from pydantic import ValidationError
+
+from monitor import Article, LitMonitorState
+
 
 class EvalGUI:
     """Class managing the literature evaluation GUI."""
@@ -113,9 +115,9 @@ class EvalGUI:
         # Read the result file
         try:
             self.agent_results = LitMonitorState.model_validate_json(await e.file.text())
-        except Exception as e:
+        except ValidationError as err:
             ui.notify(
-                message=f"Error reading evaluation file: {e}",
+                message=f"Error reading evaluation file: {err}",
                 type='warning',
                 multi_line=True
             )
@@ -201,7 +203,7 @@ class EvalGUI:
         row['evaluation'] = self.current_article.evaluation
         # change the data
         self.table_results_data.update()
-        print(self.agent_results.model_dump_json(indent=2))
+        print(self.agent_results.get_article_with_pubmed_id(self.current_article.pubmed_id).model_dump_json(indent=2))
     
     def handle_prompt_update(self):
         """Called when one of the agent prompts is updated."""
