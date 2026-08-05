@@ -828,17 +828,21 @@ class ABEvalGUI:
             raise ValueError("Can't call confusion_matrix with arrays of different lengths!")
         conf_mat = np.zeros((2, 2), dtype=np.int_)
 
-        for i in range(len(ref_data)):
-            if ref_data[i]: # article is actually relevant
-                if predicted_data[i]:
-                    conf_mat[1,1] += 1
-                else:
-                    conf_mat[1, 0] += 1
-            else: # article actually irrelevant
-                if predicted_data[i]:
-                    conf_mat[0, 1] += 1
-                else:
-                    conf_mat[0, 0] += 1
+        # Ensure inputs are numpy arrays
+        y_true = np.asarray(ref_data, dtype=bool)
+        y_pred = np.asarray(predicted_data, dtype=bool)
+
+        np.sum((y_true == 1) & (y_pred == 1))
+
+        tp = np.sum((y_true == 1) & (y_pred == 1))
+        tn = np.sum((y_true == 0) & (y_pred == 0))
+        fp = np.sum((y_true == 0) & (y_pred == 1))
+        fn = np.sum((y_true == 1) & (y_pred == 0))
+
+        conf_mat = np.array([
+            [tn, fp],
+            [fn, tp]
+        ])
         return conf_mat
 
 gui = ABEvalGUI()
