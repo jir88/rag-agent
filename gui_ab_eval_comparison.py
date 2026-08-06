@@ -1,8 +1,8 @@
-from nicegui import ui, events, elements
-
 import numpy as np
+from nicegui import elements, events, ui
 
-from monitor import Article,LitMonitorState
+from monitor import Article, LitMonitorState
+
 
 class ABEvalGUI:
     """
