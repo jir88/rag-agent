@@ -463,6 +463,7 @@ class ABEvalGUI:
         row['evaluation'] = self.ref_current_article.evaluation
         # change the data
         self.ref_table_results_data.update()
+        self.update_all_comparisons()
     
     def handle_ref_prompt_update(self):
         """Called when one of the agent prompts is updated."""
@@ -587,6 +588,7 @@ class ABEvalGUI:
         row['evaluation'] = self.condA_current_article.evaluation
         # change the data
         self.condA_table_results_data.update()
+        self.update_all_comparisons()
     
     def handle_condA_prompt_update(self):
         """Called when one of the agent prompts is updated."""
@@ -695,6 +697,7 @@ class ABEvalGUI:
         row['evaluation'] = self.condB_current_article.evaluation
         # change the data
         self.condB_table_results_data.update()
+        self.update_all_comparisons()
     
     def handle_condB_prompt_update(self):
         """Called when one of the agent prompts is updated."""
