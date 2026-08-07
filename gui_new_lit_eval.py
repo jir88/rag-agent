@@ -132,8 +132,7 @@ class EvalGUI:
         
         # populate the table
         result_rows = []
-        index = 0
-        for article in self.agent_results.new_articles:
+        for index,article in enumerate(self.agent_results.new_articles):
             row_data = {
                 "index": index,
                 "pubmed_id": article.pubmed_id,
@@ -146,7 +145,6 @@ class EvalGUI:
                 "evaluation": article.evaluation
             }
             result_rows.append(row_data)
-            index += 1
         self.table_results_data.rows = result_rows
     
     def handle_save(self):

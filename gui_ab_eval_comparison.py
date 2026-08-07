@@ -1,5 +1,6 @@
 import numpy as np
 from nicegui import elements, events, ui
+from pydantic import ValidationError
 
 from monitor import Article, LitMonitorState
 
@@ -101,12 +102,14 @@ class ABEvalGUI:
     def setup_ui(self):
         """Build the GUI itself."""
         # define navigation tabs
-        with ui.header().classes('bg-dark'):
-            with ui.tabs().classes('w-full') as tabs:
-                tab_ref = ui.tab('Reference')
-                tab_cond_a = ui.tab('Condition A')
-                tab_cond_b = ui.tab('Condition B')
-                tab_comparison = ui.tab("Comparison")
+        with (
+            ui.header().classes('bg-dark'),
+            ui.tabs().classes('w-full') as tabs
+        ):
+            tab_ref = ui.tab('Reference')
+            tab_cond_a = ui.tab('Condition A')
+            tab_cond_b = ui.tab('Condition B')
+            tab_comparison = ui.tab("Comparison")
         # define contents of each tab
         with ui.tab_panels(tabs, value=tab_ref).classes('w-7/8'):
 
@@ -374,9 +377,9 @@ class ABEvalGUI:
         try:
             text = await e.file.text()
             self.ref_agent_results = LitMonitorState.model_validate_json(json_data=text)
-        except Exception as e:
+        except ValidationError as err:
             ui.notify(
-                message=f"Error reading reference file:\n{e}",
+                message=f"Error reading reference file:\n{err}",
                 type='warning',
                 multi_line=True
             )
@@ -392,8 +395,7 @@ class ABEvalGUI:
         
         # populate the table
         result_rows = []
-        index = 0
-        for article in self.ref_agent_results.new_articles:
+        for index, article in enumerate(self.ref_agent_results.new_articles):
             row_data = {
                 "index": index,
                 "pubmed_id": article.pubmed_id,
@@ -406,13 +408,12 @@ class ABEvalGUI:
                 "evaluation": article.evaluation
             }
             result_rows.append(row_data)
-            index += 1
         self.ref_table_results_data.rows = result_rows
         self.update_all_comparisons()
 
     def handle_ref_save(self):
         """Save the monitor results to a JSON file."""
-        if self.agent_results is None:
+        if self.ref_agent_results is None:
             return
         output_file_txt = self.ref_agent_results.model_dump_json(indent=2)
         # show save dialog
@@ -483,9 +484,9 @@ class ABEvalGUI:
         try:
             text = await e.file.text()
             self.condA_agent_results = LitMonitorState.model_validate_json(json_data=text)
-        except Exception as e:
+        except ValidationError as err:
             ui.notify(
-                message=f"Error reading condition A file:\n{e}",
+                message=f"Error reading condition A file:\n{err}",
                 type='warning',
                 multi_line=True
             )
@@ -502,8 +503,7 @@ class ABEvalGUI:
         # populate the table
         result_rows = []
         ref_matches = 0
-        index = 0
-        for article in self.condA_agent_results.new_articles:
+        for index, article in enumerate(self.condA_agent_results.new_articles):
             if self.ref_agent_results is not None:
                 ref_article = self.ref_agent_results.get_article_with_pubmed_id(article.pubmed_id)
             else:
@@ -531,7 +531,6 @@ class ABEvalGUI:
                 "ref_evaluation": ref_eval
             }
             result_rows.append(row_data)
-            index += 1
         self.condA_table_results_data.rows = result_rows
         self.update_all_comparisons()
 
@@ -608,9 +607,9 @@ class ABEvalGUI:
         try:
             text = await e.file.text()
             self.condB_agent_results = LitMonitorState.model_validate_json(json_data=text)
-        except Exception as e:
+        except ValidationError as err:
             ui.notify(
-                message=f"Error reading condition B file:\n{e}",
+                message=f"Error reading condition B file:\n{err}",
                 type='warning',
                 multi_line=True
             )
@@ -626,8 +625,7 @@ class ABEvalGUI:
         
         # populate the table
         result_rows = []
-        index = 0
-        for article in self.condB_agent_results.new_articles:
+        for index,article in enumerate(self.condB_agent_results.new_articles):
             row_data = {
                 "index": index,
                 "pubmed_id": article.pubmed_id,
@@ -640,7 +638,6 @@ class ABEvalGUI:
                 "evaluation": article.evaluation
             }
             result_rows.append(row_data)
-            index += 1
         self.condB_table_results_data.rows = result_rows
         self.update_all_comparisons()
 
