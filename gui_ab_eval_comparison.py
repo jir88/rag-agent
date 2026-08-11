@@ -845,5 +845,58 @@ class ABEvalGUI:
         ])
         return conf_mat
 
+    def _mcnemar(self, table, exact=False):
+        """
+        Perform McNemar's test using NumPy.
+        
+        Parameters
+        ----------
+        table : array-like of shape (2, 2)
+            Contingency table:
+                [[n00, n01],
+                [n10, n11]]
+        exact : bool
+            If True, compute exact binomial test p-value.
+            If False, compute chi-square test with continuity correction.
+            
+        Returns
+        -------
+        statistic : float
+            Test statistic (chi-square or binomial test statistic).
+        p_value : float
+            Corresponding p-value.
+        """
+        table = np.asarray(table)
+        if table.shape != (2, 2):
+            raise ValueError("Input table must be 2x2.")
+
+        b = table[0, 1]
+        c = table[1, 0]
+
+        # Chi-square version (with continuity correction)
+        if not exact:
+            if b + c == 0:
+                return np.nan, 1.0
+            statistic = (abs(b - c) - 1)**2 / (b + c)
+            # p-value from chi-square(1 df)
+            # CDF = 1 - exp(-x/2)
+            p_value = np.exp(-statistic / 2)
+            return statistic, p_value
+
+        # Exact binomial test
+        n = b + c
+        if n == 0:
+            return np.nan, 1.0
+
+        # Compute binomial CDF using NumPy
+        # CDF(k; n, 0.5) = sum_{i=0..k} binom(n, i) * 0.5^n
+        ks = np.arange(0, b + 1)
+        # log binomial coefficients via gammaln
+        log_binom = np.gammaln(n + 1) - np.gammaln(ks + 1) - np.gammaln(n - ks + 1)
+        cdf_b = np.sum(np.exp(log_binom - n * np.log(2)))
+
+        p_value = 2 * min(cdf_b, 1 - cdf_b)
+        return None, p_value
+
 gui = ABEvalGUI()
 ui.run(host='127.0.0.1', port=9092, title="New Lit A/B Eval")
