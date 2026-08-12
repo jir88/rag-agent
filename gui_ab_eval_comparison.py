@@ -92,6 +92,11 @@ class ABEvalGUI:
     condB_ta_article_eval: elements.textarea.Textarea
     """Text area showing the article relevance evaluation."""
 
+    comp_label_mcnemar: elements.label.Label
+    """Label for displaying the McNemar's test p-value comparing conditions A and B."""
+    comp_table_conf_mat: elements.table.Table
+    """Table displaying confusion matrix for condition A vs. condition B."""
+
     def __init__(self):
         """Initialize the GUI."""
         # set up state
@@ -362,7 +367,21 @@ class ABEvalGUI:
 
             comp_panel = ui.tab_panel(tab_comparison)
             with comp_panel:
-                ui.label("Compare conditions")
+                ui.label("Conditions significantly different? (McNemar's test)")
+                self.comp_label_mcnemar = ui.label("")
+                
+                # comparison matrix
+                columns = [
+                    {'name': 'row_label', 'label': 'Cond. A Pred.', 'field': 'row_label'},
+                    {'name': 'negative', 'label': 'Cond. B Pred.\nirrelevant', 'field': 'negative'},
+                    {'name': 'positive', 'label': 'Cond B. Pred.\nrelevant', 'field': 'positive'},
+                ]
+                # placeholder data
+                rows = [
+                    {'row_label': 'Irrelevant', 'positive': 0, 'negative': 0},
+                    {'row_label': 'Relevant', 'positive': 0, 'negative': 0},
+                ]
+                self.comp_table_conf_mat = ui.table(rows=rows, columns=columns, row_key='row_label')
     
     # ============ REFERENCE TAB EVENT HANDLERS ================
 
@@ -806,22 +825,36 @@ class ABEvalGUI:
         # compare condition A and condition B
         if self.condA_agent_results is not None and self.condB_agent_results is not None:
             ref_matches = 0
-            if len(self.condA_agent_results) != len(self.condB_agent_results):
+            rel_condA = []
+            rel_condB = []
+            for article in self.condB_agent_results.new_articles:
+                ref_article = self.condA_agent_results.get_article_with_pubmed_id(article.pubmed_id)
+                if ref_article is not None:
+                    ref_matches += 1
+                    rel_condA.append(ref_article.is_relevant)
+                    rel_condB.append(article.is_relevant)
+            if ref_matches < len(self.condA_agent_results.new_articles):
                 ui.notify(
                     message="Not all condition A articles present in condition B!",
                     type='warning'
                 )
-            else: # check to see if they actually match
-                for article in self.condB_agent_results.new_articles:
-                    ref_article = self.condA_agent_results.get_article_with_pubmed_id(article.pubmed_id)
-                    if ref_article is not None:
-                        ref_matches += 1
-                if ref_matches < len(self.ref_agent_results.new_articles):
-                    ui.notify(
-                        message="Not all condition A articles present in condition B!",
-                        type='warning'
-                    )
-            # TODO: update comparison statistics here!
+            # update comparison statistics here!
+            y_true = np.array(rel_condA, dtype=np.bool)
+            y_pred = np.array(rel_condB, dtype=np.bool)
+            comp_mat = self._confusion_matrix(
+                ref_data=y_true,
+                predicted_data=y_pred
+            )
+            mn_stat, p_value = self._mcnemar(
+                table=comp_mat,
+                exact=False
+            )
+            self.comp_label_mcnemar.text = f"p-value: {p_value:.4}; statistic: {mn_stat:.4}"
+
+            self.comp_table_conf_mat.rows = [
+                {'row_label': 'Irrelevant', 'negative': comp_mat[0, 0], 'positive': comp_mat[0, 1]},
+                {'row_label': 'Relevant', 'negative': comp_mat[1, 0], 'positive': comp_mat[1, 1]},
+            ]
     
     def _confusion_matrix(self, ref_data, predicted_data) -> np.array:
         if len(ref_data) != len(predicted_data):
