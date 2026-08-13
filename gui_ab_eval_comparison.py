@@ -152,7 +152,7 @@ class ABEvalGUI:
 
                 # table showing the articles in this evaluation run
                 columns = [
-                    {'name': 'title', 'label': 'Title', 'field': 'title', 'required': True, 'align': 'left'},
+                    {'name': 'title', 'label': 'Title', 'field': 'title', 'required': True, 'align': 'left', 'style': 'text-wrap: wrap'},
                     {'name': 'date', 'label': 'Published', 'field': 'date', 'sortable': True},
                     {'name': 'is_relevant', 'label': 'Relevant?', 'field':'is_relevant', 'sortable': True}
                 ]
@@ -241,7 +241,7 @@ class ABEvalGUI:
 
                 # table showing the articles in this evaluation run
                 columns = [
-                    {'name': 'title', 'label': 'Title', 'field': 'title', 'required': True, 'align': 'left'},
+                    {'name': 'title', 'label': 'Title', 'field': 'title', 'required': True, 'align': 'left', 'style': 'text-wrap: wrap'},
                     {'name': 'date', 'label': 'Published', 'field': 'date', 'sortable': True},
                     {'name': 'is_relevant', 'label': 'Relevant?', 'field':'is_relevant', 'sortable': True}
                 ]
@@ -330,7 +330,7 @@ class ABEvalGUI:
 
                 # table showing the articles in this evaluation run
                 columns = [
-                    {'name': 'title', 'label': 'Title', 'field': 'title', 'required': True, 'align': 'left'},
+                    {'name': 'title', 'label': 'Title', 'field': 'title', 'required': True, 'align': 'left', 'style': 'text-wrap: wrap'},
                     {'name': 'date', 'label': 'Published', 'field': 'date', 'sortable': True},
                     {'name': 'is_relevant', 'label': 'Relevant?', 'field':'is_relevant', 'sortable': True}
                 ]
