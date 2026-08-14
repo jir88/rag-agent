@@ -243,7 +243,8 @@ class ABEvalGUI:
                 columns = [
                     {'name': 'title', 'label': 'Title', 'field': 'title', 'required': True, 'align': 'left', 'style': 'text-wrap: wrap'},
                     {'name': 'date', 'label': 'Published', 'field': 'date', 'sortable': True},
-                    {'name': 'is_relevant', 'label': 'Relevant?', 'field':'is_relevant', 'sortable': True}
+                    {'name': 'is_relevant', 'label': 'Predicted Relevant', 'field':'is_relevant', 'sortable': True},
+                    {'name': 'ref_is_relevant', 'label': 'Actually Relevant', 'field':'ref_is_relevant', 'sortable': True}
                 ]
                 self.condA_table_results_data = ui.table(
                     rows=[], 
@@ -332,7 +333,8 @@ class ABEvalGUI:
                 columns = [
                     {'name': 'title', 'label': 'Title', 'field': 'title', 'required': True, 'align': 'left', 'style': 'text-wrap: wrap'},
                     {'name': 'date', 'label': 'Published', 'field': 'date', 'sortable': True},
-                    {'name': 'is_relevant', 'label': 'Relevant?', 'field':'is_relevant', 'sortable': True}
+                    {'name': 'is_relevant', 'label': 'Predicted Relevant', 'field':'is_relevant', 'sortable': True},
+                    {'name': 'ref_is_relevant', 'label': 'Actually Relevant', 'field':'ref_is_relevant', 'sortable': True}
                 ]
                 self.condB_table_results_data = ui.table(
                     rows=[], 
@@ -644,7 +646,21 @@ class ABEvalGUI:
         
         # populate the table
         result_rows = []
-        for index,article in enumerate(self.condB_agent_results.new_articles):
+        ref_matches = 0
+        for index, article in enumerate(self.condB_agent_results.new_articles):
+            if self.ref_agent_results is not None:
+                ref_article = self.ref_agent_results.get_article_with_pubmed_id(article.pubmed_id)
+            else:
+                ref_article = None
+            
+            if ref_article is not None:
+                ref_matches += 1
+                ref_relevant = ref_article.is_relevant
+                ref_eval = ref_article.evaluation
+            else:
+                ref_relevant = None
+                ref_eval = ""
+
             row_data = {
                 "index": index,
                 "pubmed_id": article.pubmed_id,
@@ -652,9 +668,11 @@ class ABEvalGUI:
                 "title": article.title,
                 "source": article.source,
                 "is_relevant": article.is_relevant,
+                "ref_is_relevant": ref_relevant,
                 "abstract": article.abstract,
                 "query": self.condB_agent_results.topic_description,
-                "evaluation": article.evaluation
+                "evaluation": article.evaluation,
+                "ref_evaluation": ref_eval
             }
             result_rows.append(row_data)
         self.condB_table_results_data.rows = result_rows
