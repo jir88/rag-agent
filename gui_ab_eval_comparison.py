@@ -62,6 +62,8 @@ class ABEvalGUI:
     """Check box showing/controlling whether article is judged as relevant."""
     condA_ta_article_eval: elements.textarea.Textarea
     """Text area showing the article relevance evaluation."""
+    condA_ta_article_ref_eval: elements.textarea.Textarea
+    """Text area showing the article's gold-standard reference relevance evaluation."""
 
     # ===== Condition B Results =============
     condB_agent_results: LitMonitorState = None
@@ -91,6 +93,8 @@ class ABEvalGUI:
     """Check box showing/controlling whether article is judged as relevant."""
     condB_ta_article_eval: elements.textarea.Textarea
     """Text area showing the article relevance evaluation."""
+    condB_ta_article_ref_eval: elements.textarea.Textarea
+    """Text area showing the article's gold-standard reference relevance evaluation."""
 
     comp_label_mcnemar: elements.label.Label
     """Label for displaying the McNemar's test p-value comparing conditions A and B."""
@@ -270,10 +274,19 @@ class ABEvalGUI:
                     on_change=self.handle_condA_result_update
                 )
                 ui.label("Why is/isn't the article relevant?").classes("text-2xl")
-                self.condA_ta_article_eval = ui.textarea(
-                    placeholder="Write explanation here.",
-                    on_change=self.handle_condA_result_update
-                ).classes("text-base w-7/8")
+                with ui.row(align_items="center").classes("w-full"):
+                    # first row, with labels
+                    ui.label("Proposed explanation:").classes("w-3/8")
+                    ui.label("True explanation:").classes("w-3/8")
+                    # second row, with text areas
+                    self.condA_ta_article_eval = ui.textarea(
+                        placeholder="Write explanation here.",
+                        on_change=self.handle_condA_result_update
+                    ).classes("text-base w-3/8")
+                    self.condA_ta_article_ref_eval = ui.textarea(
+                        placeholder="Reference explanation here."
+                    ).classes("text-base w-3/8")
+                    self.condA_ta_article_ref_eval.disable()
 
             # ------ CONDITION B TAB -------------
 
@@ -360,10 +373,19 @@ class ABEvalGUI:
                     on_change=self.handle_condB_result_update
                 )
                 ui.label("Why is/isn't the article relevant?").classes("text-2xl")
-                self.condB_ta_article_eval = ui.textarea(
-                    placeholder="Write explanation here.",
-                    on_change=self.handle_condB_result_update
-                ).classes("text-base w-7/8")
+                with ui.row(align_items="center").classes("w-full"):
+                    # first row, with labels
+                    ui.label("Proposed explanation:").classes("w-3/8")
+                    ui.label("True explanation:").classes("w-3/8")
+                    # second row, with text areas
+                    self.condB_ta_article_eval = ui.textarea(
+                        placeholder="Write explanation here.",
+                        on_change=self.handle_condB_result_update
+                    ).classes("text-base w-3/8")
+                    self.condB_ta_article_ref_eval = ui.textarea(
+                        placeholder="Reference explanation here."
+                    ).classes("text-base w-3/8")
+                    self.condB_ta_article_ref_eval.disable()
 
             # ------ COMPARISON TAB -------------
 
@@ -576,6 +598,7 @@ class ABEvalGUI:
             self.condA_label_query.set_text("Query")
             self.condA_cb_article_relevant.set_value(False)
             self.condA_ta_article_eval.set_value("")
+            self.condA_ta_article_ref_eval.set_value("")
             return
         row_data = e.selection[0]
         # set current article
@@ -586,6 +609,7 @@ class ABEvalGUI:
         self.condA_label_query.set_text(row_data['query'])
         self.condA_cb_article_relevant.set_value(row_data['is_relevant'])
         self.condA_ta_article_eval.set_value(row_data['evaluation'])
+        self.condA_ta_article_ref_eval.set_value(row_data['ref_evaluation'])
     
     def handle_condA_result_update(self):
         """Called when result relevance or evaluation is updated."""
@@ -699,6 +723,7 @@ class ABEvalGUI:
             self.condB_label_query.set_text("Query")
             self.condB_cb_article_relevant.set_value(False)
             self.condB_ta_article_eval.set_value("")
+            self.condA_ta_article_ref_eval.set_value("")
             return
         row_data = e.selection[0]
         # set current article
@@ -709,6 +734,7 @@ class ABEvalGUI:
         self.condB_label_query.set_text(row_data['query'])
         self.condB_cb_article_relevant.set_value(row_data['is_relevant'])
         self.condB_ta_article_eval.set_value(row_data['evaluation'])
+        self.condB_ta_article_ref_eval.set_value(row_data['ref_evaluation'])
     
     def handle_condB_result_update(self):
         """Called when result relevance or evaluation is updated."""
