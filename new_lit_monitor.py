@@ -1,16 +1,17 @@
 import argparse
-import sys
 import datetime
-# import pandas as pd
-
-from openai import OpenAI
+import sys
 from pathlib import Path
-from typing import List, Literal
-from langgraph.graph import StateGraph, START, END
-from langgraph.types import Command
+from typing import Literal
 
-from monitor import Article,LitMonitorState
+import pydantic
+from langgraph.graph import END, START, StateGraph
+from langgraph.types import Command
+from openai import OpenAI
+
+from monitor import Article, LitMonitorState
 from tools import PubmedSearchTool
+
 
 def do_search(state: LitMonitorState) -> Command[Literal["eval_all_papers", "collate_evals"]]:
     """
@@ -120,7 +121,7 @@ class LitMonitor:
     whether they are relevant to the user's interests.
     """
 
-    def __init__(self, llm:str, api_key:str = None, base_url:str = None, sampling_params:dict = None):
+    def __init__(self, llm:str, api_key:str | None = None, base_url:str | None = None, sampling_params:dict | None = None):
         """
         Create a new monitor workflow with a back-end LLM.
 
@@ -159,7 +160,7 @@ class LitMonitor:
         system_prompt:str, article_relevance_prompt:str,
         topic_description:str, search_terms:str,
         max_results:int=25,
-        prior_pmids:List[str] = []
+        prior_pmids:list[str] | None = None
         ) -> LitMonitorState:
         """
         Run the monitor agent for a given topic and search term.
@@ -181,6 +182,9 @@ class LitMonitor:
         Returns:
             The results of the agent run in a dict.
         """
+        if prior_pmids is None:
+            prior_pmids = []
+        
         # build agent state
         state = {
             'llm': self.llm,
@@ -264,7 +268,7 @@ def main():
     # Read the topic file
     try:
         input_settings = LitMonitorState.model_validate_json(input_path.read_text())
-    except Exception as e:
+    except pydantic.ValidationError as e:
         print(f"Error reading topic file: {e}")
         sys.exit(1)
 
@@ -319,7 +323,7 @@ def main():
         output_file_name = input_path
     else:
         # put timestamp on input file name
-        timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        timestamp = datetime.datetime.now(datetime.timezone.UTC).strftime("%Y-%m-%d_%H-%M-%S")
         output_file_name = input_path.parent.joinpath(input_path.stem + "_" + timestamp + ".json")
     # save whole result dict
     with open(output_file_name, mode='w') as fp:
