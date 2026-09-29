@@ -1,13 +1,14 @@
 import argparse
 import datetime
 import sys
-import new_lit_monitor as nlm
-
 from pathlib import Path
-from typing import List
-from langgraph.graph import StateGraph, START, END
 
-from monitor import Article,LitMonitorState
+import pydantic
+from langgraph.graph import END, START, StateGraph
+
+import new_lit_monitor as nlm
+from monitor import Article, LitMonitorState
+
 
 class EvalLitMonitor:
     """
@@ -15,7 +16,7 @@ class EvalLitMonitor:
     a fixed set of articles that have been hand-evaluated for relevance to the associated topic.
     """
 
-    def __init__(self, llm:str, api_key:str = None, base_url:str = None, sampling_params:dict = None):
+    def __init__(self, llm:str, api_key:str | None = None, base_url:str | None = None, sampling_params:dict | None = None):
         """
         Create a new monitor workflow with a back-end LLM.
 
@@ -49,7 +50,7 @@ class EvalLitMonitor:
     def evaluate_on_articles(
         self,
         system_prompt:str, article_relevance_prompt:str, topic_description:str,
-        article_list:List[Article] = []
+        article_list:list[Article] | None = None
         ):
         """
         Run the monitor agent for a given topic and search term.
@@ -70,6 +71,9 @@ class EvalLitMonitor:
         Returns:
             The results of the agent evaluation run in a dict.
         """
+        if article_list is None:
+            article_list = []
+        
         # build agent state
         state = {
             'llm': self.llm,
@@ -148,7 +152,7 @@ def main():
     # Read the evaluation configuration file
     try:
         validation_settings = LitMonitorState.model_validate_json(input_path.read_text())
-    except Exception as e:
+    except pydantic.ValidationError as e:
         print(f"Error reading evaluation file: {e}")
         sys.exit(1)
     
@@ -171,7 +175,7 @@ def main():
         output_file_base = args.output
     else:
         # put timestamp on input file name
-        timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        timestamp = datetime.datetime.now(datetime.timezone.UTC).strftime("%Y-%m-%d_%H-%M-%S")
         output_file_base = input_path.parent.joinpath(input_path.stem + "_eval_" + timestamp)
 
     for n in range(args.repeats):
