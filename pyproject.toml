@@ -1,0 +1,13 @@
+[project]
+name = "rag-agent"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "langgraph>=1.2.12",
+    "nicegui>=3.17.1",
+    "numpy>=2.5.3",
+    "openai>=3.19.0",
+    "pydantic>=2.13.5",
+]
