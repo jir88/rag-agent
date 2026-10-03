@@ -1,6 +1,8 @@
+from typing import Any
+
 from openai import OpenAI
-from pydantic import BaseModel,Field,ConfigDict
-from typing import Any,Dict,List
+from pydantic import BaseModel, ConfigDict, Field
+
 
 class Article(BaseModel):
     """A single PubMed article with metadata and evaluation results."""
@@ -9,7 +11,7 @@ class Article(BaseModel):
     doi: str = Field(description="The DOI string for this article.")
     title: str = Field(description="Article title")
     date: str = Field(description="Article publication date")
-    authors: List[Dict[str, Any]] = Field(description="List of dicts, one per author. Dict must contain 'name' key.")
+    authors: list[dict[str, Any]] = Field(description="List of dicts, one per author. Dict must contain 'name' key.")
     source: str = Field(
         description="Article source, usually journal title. May be blank.",
         default=""
@@ -37,7 +39,7 @@ class LitMonitorState(BaseModel):
         exclude=True
     )
     base_url: str = Field(description="URL where inference client is located.")
-    sampling_params: Dict[str, Any] = Field(description="OpenAI-style dict of sampling parameters for the LLM.")
+    sampling_params: dict[str, Any] = Field(description="OpenAI-style dict of sampling parameters for the LLM.")
     client: OpenAI = Field(
         description="OpenAI client object for interfacing with LLM. Created at runtime.",
         default=None,
@@ -76,11 +78,11 @@ class LitMonitorState(BaseModel):
     topic_description: str = Field(description="A description of the topic the user is interested in.")
     search_terms: str = Field(description="The PubMed search terms being monitored")
 
-    prior_pmids: List[str] = Field(
+    prior_pmids: list[str] = Field(
         default=[],
         description="A list of the PMIDs we have seen before."
     )
-    new_articles: List[Article] = Field(
+    new_articles: list[Article] = Field(
         default=[],
         description="A list of dicts containing each new article we have found."
     )
