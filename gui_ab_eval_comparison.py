@@ -1,5 +1,9 @@
 import numpy as np
-from nicegui import elements, events, ui
+from nicegui import events, ui
+from nicegui.elements.checkbox import Checkbox
+from nicegui.elements.label import Label
+from nicegui.elements.table import Table
+from nicegui.elements.textarea import Textarea
 from pydantic import ValidationError
 
 from monitor import Article, LitMonitorState
@@ -16,22 +20,22 @@ class ABEvalGUI:
     """Currently selected article, if any."""
 
     # GUI elements
-    ref_ta_system_prompt: elements.textarea.Textarea
+    ref_ta_system_prompt: Textarea
     """Text area showing the system prompt used by the agent."""
-    ref_ta_relevance_prompt: elements.textarea.Textarea
+    ref_ta_relevance_prompt: Textarea
     """Text area showing the format used to present articles for evaluation."""
 
-    ref_table_results_data: elements.table.Table
+    ref_table_results_data: Table
     """Table showing articles in the current result."""
-    ref_label_title: elements.label.Label
+    ref_label_title: Label
     """Label to hold selected article title."""
-    ref_label_abstract: elements.label.Label
+    ref_label_abstract: Label
     """Label to hold selected article abstract."""
-    ref_label_query: elements.label.Label
+    ref_label_query: Label
     """Label to hold the criteria for whether an article is relevant."""
-    ref_cb_article_relevant: elements.checkbox.Checkbox
+    ref_cb_article_relevant: Checkbox
     """Check box showing/controlling whether article is judged as relevant."""
-    ref_ta_article_eval: elements.textarea.Textarea
+    ref_ta_article_eval: Textarea
     """Text area showing the article relevance evaluation."""
 
     # ===== Condition A Results =============
@@ -40,29 +44,29 @@ class ABEvalGUI:
     """Currently selected article, if any."""
 
     # GUI elements
-    condA_table_conf_mat: elements.table.Table
+    condA_table_conf_mat: Table
     """Table displaying confusion matrix for condition A."""
-    condA_label_accuracy: elements.label.Label
-    condA_label_ppv: elements.label.Label
-    condA_label_npv: elements.label.Label
-    condA_ta_system_prompt: elements.textarea.Textarea
+    condA_label_accuracy: Label
+    condA_label_ppv: Label
+    condA_label_npv: Label
+    condA_ta_system_prompt: Textarea
     """Text area showing the system prompt used by the agent."""
-    condA_ta_relevance_prompt: elements.textarea.Textarea
+    condA_ta_relevance_prompt: Textarea
     """Text area showing the format used to present articles for evaluation."""
 
-    condA_table_results_data: elements.table.Table
+    condA_table_results_data: Table
     """Table showing articles in the current result."""
-    condA_label_title: elements.label.Label
+    condA_label_title: Label
     """Label to hold selected article title."""
-    condA_label_abstract: elements.label.Label
+    condA_label_abstract: Label
     """Label to hold selected article abstract."""
-    condA_label_query: elements.label.Label
+    condA_label_query: Label
     """Label to hold the criteria for whether an article is relevant."""
-    condA_cb_article_relevant: elements.checkbox.Checkbox
+    condA_cb_article_relevant: Checkbox
     """Check box showing/controlling whether article is judged as relevant."""
-    condA_ta_article_eval: elements.textarea.Textarea
+    condA_ta_article_eval: Textarea
     """Text area showing the article relevance evaluation."""
-    condA_ta_article_ref_eval: elements.textarea.Textarea
+    condA_ta_article_ref_eval: Textarea
     """Text area showing the article's gold-standard reference relevance evaluation."""
 
     # ===== Condition B Results =============
@@ -71,34 +75,34 @@ class ABEvalGUI:
     """Currently selected article, if any."""
 
     # GUI elements
-    condB_table_conf_mat: elements.table.Table
+    condB_table_conf_mat: Table
     """Table displaying confusion matrix for condition B."""
-    condB_label_accuracy: elements.label.Label
-    condB_label_ppv: elements.label.Label
-    condB_label_npv: elements.label.Label
-    condB_ta_system_prompt: elements.textarea.Textarea
+    condB_label_accuracy: Label
+    condB_label_ppv: Label
+    condB_label_npv: Label
+    condB_ta_system_prompt: Textarea
     """Text area showing the system prompt used by the agent."""
-    condB_ta_relevance_prompt: elements.textarea.Textarea
+    condB_ta_relevance_prompt: Textarea
     """Text area showing the format used to present articles for evaluation."""
 
-    condB_table_results_data: elements.table.Table
+    condB_table_results_data: Table
     """Table showing articles in the current result."""
-    condB_label_title: elements.label.Label
+    condB_label_title: Label
     """Label to hold selected article title."""
-    condB_label_abstract: elements.label.Label
+    condB_label_abstract: Label
     """Label to hold selected article abstract."""
-    condB_label_query: elements.label.Label
+    condB_label_query: Label
     """Label to hold the criteria for whether an article is relevant."""
-    condB_cb_article_relevant: elements.checkbox.Checkbox
+    condB_cb_article_relevant: Checkbox
     """Check box showing/controlling whether article is judged as relevant."""
-    condB_ta_article_eval: elements.textarea.Textarea
+    condB_ta_article_eval: Textarea
     """Text area showing the article relevance evaluation."""
-    condB_ta_article_ref_eval: elements.textarea.Textarea
+    condB_ta_article_ref_eval: Textarea
     """Text area showing the article's gold-standard reference relevance evaluation."""
 
-    comp_label_mcnemar: elements.label.Label
+    comp_label_mcnemar: Label
     """Label for displaying the McNemar's test p-value comparing conditions A and B."""
-    comp_table_conf_mat: elements.table.Table
+    comp_table_conf_mat: Table
     """Table displaying confusion matrix for condition A vs. condition B."""
 
     def __init__(self):
@@ -975,5 +979,15 @@ class ABEvalGUI:
         p_value = 2 * min(cdf_b, 1 - cdf_b)
         return None, p_value
 
-gui = ABEvalGUI()
-ui.run(host='127.0.0.1', port=9092, title="New Lit A/B Eval")
+# gui = ABEvalGUI()
+# ui.run(host='127.0.0.1', port=9092, title="New Lit A/B Eval")
+
+# wrapper function so every user session gets its own UI object
+def main():
+    eval_ui = ABEvalGUI()
+    eval_ui.setup_ui()
+
+if __name__ in {"__main__", "__mp_main__"}:
+    ui.run(root=main, host='127.0.0.1', port=9092, title="New Lit A/B Eval", favicon='🥔',
+        binding_refresh_interval=0.2, reconnect_timeout=10
+    )
