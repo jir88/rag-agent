@@ -984,8 +984,7 @@ class ABEvalGUI:
 
 # wrapper function so every user session gets its own UI object
 def main():
-    eval_ui = ABEvalGUI()
-    eval_ui.setup_ui()
+    ABEvalGUI()
 
 if __name__ in {"__main__", "__mp_main__"}:
     ui.run(root=main, host='127.0.0.1', port=9092, title="New Lit A/B Eval", favicon='🥔',
