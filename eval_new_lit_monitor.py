@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pydantic
 from langgraph.graph import END, START, StateGraph
+from openai import OpenAI
 
 import new_lit_monitor as nlm
 from monitor import Article, LitMonitorState
@@ -37,6 +38,14 @@ class EvalLitMonitor:
                 "temperature": "1.0",
                 "top_p": "0.95"
             }
+
+        # create OpenAI API client
+        self.client = OpenAI(
+            api_key=self.api_key,
+            base_url=self.base_url,
+            timeout=1200,
+            max_retries=10
+        )
 
         # build the agent graph
         self._initialize_agent_graph()
@@ -80,6 +89,7 @@ class EvalLitMonitor:
             'api_key': self.api_key,
             'base_url': self.base_url,
             'sampling_params': self.sampling_params,
+            'client': self.client,
             'agent_system_prompt': system_prompt,
             'article_relevance_prompt': article_relevance_prompt,
             'topic_description': topic_description,
