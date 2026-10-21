@@ -177,7 +177,8 @@ def main():
     agent = EvalLitMonitor(
         llm=validation_settings.llm,
         api_key=api_key,
-        base_url=validation_settings.base_url
+        base_url=validation_settings.base_url,
+        sampling_params=validation_settings.sampling_params
     )
 
     # if output file is specified, use that
