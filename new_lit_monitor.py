@@ -140,8 +140,8 @@ class LitMonitor:
         if self.sampling_params is None:
             # values have to be strings
             self.sampling_params = {
-                "temperature": "1.0",
-                "top_p": "0.95"
+                "temperature": 1.0,
+                "top_p": 0.95
             }
 
         # create OpenAI API client

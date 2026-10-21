@@ -35,8 +35,8 @@ class EvalLitMonitor:
         # default parameters if none provided
         if self.sampling_params is None:
             self.sampling_params = {
-                "temperature": "1.0",
-                "top_p": "0.95"
+                "temperature": 1.0,
+                "top_p": 0.95
             }
 
         # create OpenAI API client
