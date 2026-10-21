@@ -50,12 +50,6 @@ class EvalLitMonitor:
         # build the agent graph
         self._initialize_agent_graph()
     
-    # TODO: change to evaluate_on_articles
-    # replace prior_pmids with list of articles to evaluate on
-    # what format are articles stored in?
-    # push them into 'new_articles' state variable
-    # run agent
-    # profit
     def evaluate_on_articles(
         self,
         system_prompt:str, article_relevance_prompt:str, topic_description:str,
