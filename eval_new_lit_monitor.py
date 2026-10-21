@@ -161,7 +161,7 @@ def main():
 
     # Read the evaluation configuration file
     try:
-        validation_settings = LitMonitorState.model_validate_json(input_path.read_text())
+        validation_settings = LitMonitorState.model_validate_json(input_path.read_text(encoding="utf-8"))
     except pydantic.ValidationError as e:
         print(f"Error reading evaluation file: {e}")
         sys.exit(1)
