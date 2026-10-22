@@ -56,7 +56,8 @@ class LitMonitorState(BaseModel):
             "your research. You don't have much time, so you focus on finding the most relevant papers to "
             "download and read. Your research topic is:\n\n"
             "{topic}"
-        )
+        ),
+        min_length=1
     )
     article_relevance_prompt: str = Field(
         description=(
@@ -73,10 +74,17 @@ class LitMonitorState(BaseModel):
             "relevant or irrelevant to your research topic. Be skeptical. Finally, if the article is "
             "relevant, write ##YES##. If it is irrelevant, write ##NO##. Be sure to end your response "
             "with either ##YES## or ##NO##."
-        )
+        ),
+        min_length=1
     )
-    topic_description: str = Field(description="A description of the topic the user is interested in.")
-    search_terms: str = Field(description="The PubMed search terms being monitored")
+    topic_description: str = Field(
+        description="A description of the topic the user is interested in.",
+        min_length=1
+    )
+    search_terms: str = Field(
+        description="The PubMed search terms being monitored",
+        min_length=1
+    )
 
     prior_pmids: list[str] = Field(
         default=[],
