@@ -87,7 +87,7 @@ class EvalLitMonitor:
             'agent_system_prompt': system_prompt,
             'article_relevance_prompt': article_relevance_prompt,
             'topic_description': topic_description,
-            'search_terms': "",
+            'search_terms': "<NA>", # bogus placeholder since we're evaluating only here
             'article_evaluations': [],
             'new_articles': article_list,
             'num_pubmed_results': -1
